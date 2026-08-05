@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Upload, FileText, AlertCircle, CheckCircle2, FileCode } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Upload, FileText, AlertCircle, CheckCircle2, FileCode, Layers } from 'lucide-react';
 import { parseKGraphText } from '../lib/parser';
 import { TextParseResult } from '../types';
 
@@ -15,8 +15,6 @@ const SCAFFOLD_TEXT_BLOCK = `# Vertices
 # Color Two Edges
 
 # Commuting Squares
-
-# Properties
 `;
 
 const SAMPLE_TEXT_BLOCK = `# Vertices
@@ -32,30 +30,108 @@ e3 v1 v3
 
 # Commuting Squares
 e0 e3 ~ e2 e1
-
-# Properties
-Name: Example 2-Graph Square
-Paper: ArXiv 2026 Topology Studies
-Homology groups: H0=0, H1=\\mathbb{Z}, H2=\\mathbb{Z}^2
 `;
 
 export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit, onDirty }) => {
-  const [rawText, setRawText] = useState<string>(SCAFFOLD_TEXT_BLOCK);
+  const [k, setK] = useState<number>(2);
+  const [kInput, setKInput] = useState<string>('2');
+  const [verticesText, setVerticesText] = useState<string>('');
+  const [edgesText, setEdgesText] = useState<Record<number, string>>({});
+  const [squaresText, setSquaresText] = useState<string>('');
+  const [cubesText, setCubesText] = useState<string>('');
+
   const [showExample, setShowExample] = useState<boolean>(false);
   const [parseResult, setParseResult] = useState<TextParseResult | null>(null);
 
-  // Live validation on text change
-  useEffect(() => {
-    if (rawText !== SCAFFOLD_TEXT_BLOCK) {
-      onDirty?.();
+  const combinedText = useMemo(() => {
+    let text = `# Vertices\n${verticesText.trim()}\n\n`;
+    for (let i = 1; i <= k; i++) {
+      text += `# Color ${i} Edges\n${(edgesText[i] || '').trim()}\n\n`;
     }
-    if (!rawText.trim()) {
+    text += `# Commuting Squares\n${squaresText.trim()}\n\n`;
+    if (k > 2) {
+      text += `# Commuting Cubes\n${cubesText.trim()}\n\n`;
+    }
+    return text;
+  }, [k, verticesText, edgesText, squaresText, cubesText]);
+
+  // Live validation on combined text change
+  useEffect(() => {
+    const isEmpty = !verticesText.trim() && !Object.values(edgesText).some(v => v.trim()) && !squaresText.trim() && !cubesText.trim();
+    if (isEmpty) {
       setParseResult(null);
       return;
     }
-    const res = parseKGraphText(rawText);
+    const res = parseKGraphText(combinedText);
     setParseResult(res);
-  }, [rawText, onDirty]);
+  }, [combinedText]);
+
+  const loadFromTextBlock = (content: string) => {
+    const lines = content.split(/\r?\n/);
+    let currentSection = '';
+    let maxColorIdx = 2;
+    let currentColorIdx = 1;
+    const vLines: string[] = [];
+    const eLines: Record<number, string[]> = {};
+    const sqLines: string[] = [];
+    const cbLines: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#')) {
+        const headerText = trimmed.replace(/^#+\s*/, '').trim().toLowerCase();
+        if (headerText.includes('vertic')) {
+          currentSection = 'vertices';
+        } else if (headerText.includes('square')) {
+          currentSection = 'squares';
+        } else if (headerText.includes('cube')) {
+          currentSection = 'cubes';
+        } else if (headerText.includes('propert')) {
+          currentSection = 'properties';
+        } else if (headerText.includes('color') || headerText.includes('edge')) {
+          currentSection = 'edges';
+          const matchNumber = headerText.match(/color\s*(\d+|one|two|three|four|five|six|seven|eight|nine|ten)/i);
+          if (matchNumber) {
+            const rawNum = matchNumber[1].toLowerCase();
+            const wordToNum: Record<string, number> = {
+              one: 1, two: 2, three: 3, four: 4, five: 5,
+              six: 6, seven: 7, eight: 8, nine: 9, ten: 10
+            };
+            const colorNum = wordToNum[rawNum] || parseInt(rawNum, 10) || 1;
+            currentColorIdx = colorNum;
+            maxColorIdx = Math.max(maxColorIdx, colorNum);
+          } else {
+            currentColorIdx = maxColorIdx;
+          }
+          if (!eLines[currentColorIdx]) eLines[currentColorIdx] = [];
+        }
+        continue;
+      }
+      if (!trimmed) continue;
+      if (currentSection === 'vertices') vLines.push(line);
+      else if (currentSection === 'edges') {
+        if (!eLines[currentColorIdx]) eLines[currentColorIdx] = [];
+        eLines[currentColorIdx].push(line);
+      }
+      else if (currentSection === 'squares') sqLines.push(line);
+      else if (currentSection === 'cubes') {
+        cbLines.push(line);
+        maxColorIdx = Math.max(maxColorIdx, 3);
+      }
+    }
+
+    setK(maxColorIdx);
+    setKInput(String(maxColorIdx));
+    setVerticesText(vLines.join('\n'));
+    const newEdges: Record<number, string> = {};
+    for (const idx in eLines) {
+      newEdges[Number(idx)] = eLines[idx].join('\n');
+    }
+    setEdgesText(newEdges);
+    setSquaresText(sqLines.join('\n'));
+    setCubesText(cbLines.join('\n'));
+    onDirty?.();
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,7 +141,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
     reader.onload = (evt) => {
       const content = evt.target?.result as string;
       if (content) {
-        setRawText(content);
+        loadFromTextBlock(content);
       }
     };
     reader.readAsText(file);
@@ -83,7 +159,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
       reader.onload = (evt) => {
         const content = evt.target?.result as string;
         if (content) {
-          setRawText(content);
+          loadFromTextBlock(content);
         }
       };
       reader.readAsText(file);
@@ -92,7 +168,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const res = parseKGraphText(rawText);
+    const res = parseKGraphText(combinedText);
     if (res.success && res.graph) {
       onParsedSubmit(res);
     }
@@ -131,13 +207,25 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
               <FileCode className="w-4 h-4 text-black" />
               Immutable Example Reference
             </span>
-            <button
-              type="button"
-              onClick={() => setShowExample(false)}
-              className="text-xs font-bold uppercase tracking-wider border border-black bg-white px-3 py-1 hover:bg-black hover:text-white transition-colors cursor-pointer"
-            >
-              Close Example ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  loadFromTextBlock(SAMPLE_TEXT_BLOCK);
+                  setShowExample(false);
+                }}
+                className="text-xs font-bold uppercase tracking-wider border border-black bg-black text-white px-3 py-1 hover:bg-neutral-800 transition-colors cursor-pointer"
+              >
+                Insert Example Data
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExample(false)}
+                className="text-xs font-bold uppercase tracking-wider border border-black bg-white px-3 py-1 hover:bg-black hover:text-white transition-colors cursor-pointer"
+              >
+                Close ✕
+              </button>
+            </div>
           </div>
           <pre className="bg-black text-white p-4 text-[11px] leading-relaxed overflow-x-auto select-text font-mono border border-black rounded-none">
             <code>{SAMPLE_TEXT_BLOCK}</code>
@@ -145,12 +233,54 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
         </div>
       )}
 
-      {/* Manual Textarea */}
-      <div>
+      {/* Config Bar for Number of Colors (k) */}
+      <div className="border border-black bg-[#fafafa] p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <label className="block text-[11px] font-bold uppercase tracking-widest text-black mb-1 flex items-center gap-1.5">
+              <Layers className="w-4 h-4 text-black" />
+              NUMBER OF COLORS (k)
+            </label>
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
+              Controls dynamic immutable header sections for edge colors and commuting cubes.
+            </p>
+          </div>
+          <div className="w-full md:w-48">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={kInput}
+              onChange={e => {
+                const valStr = e.target.value.replace(/\D/g, '');
+                setKInput(valStr);
+                onDirty?.();
+                const valNum = parseInt(valStr, 10);
+                if (!isNaN(valNum) && valNum >= 1) {
+                  setK(valNum);
+                }
+              }}
+              onBlur={() => {
+                if (!kInput || parseInt(kInput, 10) < 1) {
+                  setK(1);
+                  setKInput('1');
+                }
+              }}
+              onFocus={e => e.target.select()}
+              onMouseUp={e => e.preventDefault()}
+              onClick={e => (e.target as HTMLInputElement).select()}
+              className="w-full border border-black bg-white p-2.5 text-sm font-mono focus:border-black focus:outline-none rounded-none transition-colors"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Manual Structured Sections */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between mb-2">
           <label className="text-xs font-bold uppercase tracking-widest text-black flex items-center gap-1.5">
             <FileText className="w-4 h-4 text-black" />
-            Manual Format Entry
+            Structured Section Entry
           </label>
           <div className="flex items-center gap-2">
             <button
@@ -162,21 +292,88 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
             </button>
             <button
               type="button"
-              onClick={() => setRawText(SCAFFOLD_TEXT_BLOCK)}
+              onClick={() => {
+                setK(2);
+                setKInput('2');
+                setVerticesText('');
+                setEdgesText({});
+                setSquaresText('');
+                setCubesText('');
+                onDirty?.();
+              }}
               className="text-[10px] uppercase font-bold tracking-wider text-neutral-500 hover:text-black underline cursor-pointer"
             >
-              Reset to Headers Only
+              Clear All Sections
             </button>
           </div>
         </div>
 
-        <textarea
-          rows={12}
-          value={rawText}
-          onChange={e => setRawText(e.target.value)}
-          placeholder="# Vertices&#10;v0 v1 v2&#10;# Color One Edges&#10;e0 v0 v1..."
-          className="w-full font-mono text-[11px] border border-black p-4 bg-white focus:border-black focus:outline-none leading-relaxed rounded-none transition-colors"
-        />
+        {/* Vertices Section */}
+        <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
+            <span># Vertices</span>
+            <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
+          </div>
+          <textarea
+            rows={2}
+            value={verticesText}
+            onChange={e => { setVerticesText(e.target.value); onDirty?.(); }}
+            placeholder="v0 v1 v2 v3"
+            className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
+          />
+        </div>
+
+        {/* Dynamic Edge Sections for Colors 1 to k */}
+        {Array.from({ length: k }, (_, idx) => idx + 1).map(c => (
+          <div key={c} className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
+              <span># Color {c} Edges</span>
+              <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
+            </div>
+            <textarea
+              rows={3}
+              value={edgesText[c] || ''}
+              onChange={e => {
+                setEdgesText(prev => ({ ...prev, [c]: e.target.value }));
+                onDirty?.();
+              }}
+              placeholder={`e${(c-1)*2} v0 v1\ne${(c-1)*2 + 1} v2 v3`}
+              className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
+            />
+          </div>
+        ))}
+
+        {/* Commuting Squares Section */}
+        <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+          <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
+            <span># Commuting Squares</span>
+            <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
+          </div>
+          <textarea
+            rows={3}
+            value={squaresText}
+            onChange={e => { setSquaresText(e.target.value); onDirty?.(); }}
+            placeholder="e0 e3 ~ e2 e1"
+            className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
+          />
+        </div>
+
+        {/* Commuting Cubes Section (Only when k > 2) */}
+        {k > 2 && (
+          <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
+              <span># Commuting Cubes</span>
+              <span className="text-[9px] text-amber-400 uppercase tracking-widest font-sans font-bold">Required for k &gt; 2 • Immutable Header</span>
+            </div>
+            <textarea
+              rows={3}
+              value={cubesText}
+              onChange={e => { setCubesText(e.target.value); onDirty?.(); }}
+              placeholder="e0 e1 e2 ~ e3 e4 e5"
+              className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
+            />
+          </div>
+        )}
       </div>
 
       {/* Parse Feedback Banner */}

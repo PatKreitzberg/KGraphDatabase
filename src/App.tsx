@@ -252,9 +252,9 @@ export default function App() {
 
       {/* Footer */}
       <footer className="px-8 py-4 border-t border-black bg-white flex flex-wrap justify-between items-center text-[9px] uppercase font-bold tracking-[0.2em] text-neutral-500 gap-4 mt-12">
-        <span>Flat JSON Storage (graphs.json)</span>
-        <span>v1.0.4 Pre-Alpha</span>
-        <span>Validator Status: <span className="text-black underline font-bold">Python &amp; PHP Ready</span></span>
+        <span></span>
+        <span>Created by Patrick Kreitzberg</span>
+        <span></span>
       </footer>
 
       {/* PHP Export Modal */}
