@@ -9,6 +9,10 @@ export interface KGraphProperties {
   image_url?: string;
   homology?: Record<string, string>;
   custom?: Record<string, string>;
+  source_free?: boolean;
+  sink_free?: boolean;
+  aperiodic?: boolean;
+  cofinal?: boolean;
 }
 
 export interface PropertyLog {
@@ -83,4 +87,8 @@ export interface SearchFilters {
   max_vertices?: number | null;
   homology?: Record<string, string>;
   search_query?: string;
+  source_free?: boolean;
+  sink_free?: boolean;
+  aperiodic?: boolean;
+  cofinal?: boolean;
 }

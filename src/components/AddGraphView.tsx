@@ -31,6 +31,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
     H1: '\\mathbb{Z}'
   });
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [sourceFree, setSourceFree] = useState(false);
+  const [sinkFree, setSinkFree] = useState(false);
+  const [aperiodic, setAperiodic] = useState(false);
+  const [cofinal, setCofinal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>('');
@@ -92,6 +96,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
       if (res.graph.properties?.name) setGraphName(res.graph.properties.name);
       if (res.graph.properties?.paper) setPaperCitation(res.graph.properties.paper);
       if (res.graph.properties?.homology) setHomologyMap(res.graph.properties.homology);
+      if (res.graph.properties?.source_free !== undefined) setSourceFree(!!res.graph.properties.source_free);
+      if (res.graph.properties?.sink_free !== undefined) setSinkFree(!!res.graph.properties.sink_free);
+      if (res.graph.properties?.aperiodic !== undefined) setAperiodic(!!res.graph.properties.aperiodic);
+      if (res.graph.properties?.cofinal !== undefined) setCofinal(!!res.graph.properties.cofinal);
 
       setStep('properties');
     }
@@ -145,7 +153,11 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
           name: graphName.trim() || undefined,
           paper: paperCitation.trim() || undefined,
           image_url: uploadedImageUrl,
-          homology: homologyMap
+          homology: homologyMap,
+          source_free: sourceFree,
+          sink_free: sinkFree,
+          aperiodic: aperiodic,
+          cofinal: cofinal
         }
       };
 
@@ -302,6 +314,51 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             </div>
           </div>
 
+          {/* Structural Algebraic Properties Checkboxes */}
+          <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
+              Structural Properties (Check all that apply)
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={sourceFree}
+                  onChange={e => setSourceFree(e.target.checked)}
+                  className="w-4 h-4 accent-black"
+                />
+                Source Free
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={sinkFree}
+                  onChange={e => setSinkFree(e.target.checked)}
+                  className="w-4 h-4 accent-black"
+                />
+                Sink Free
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={aperiodic}
+                  onChange={e => setAperiodic(e.target.checked)}
+                  className="w-4 h-4 accent-black"
+                />
+                Aperiodic
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={cofinal}
+                  onChange={e => setCofinal(e.target.checked)}
+                  className="w-4 h-4 accent-black"
+                />
+                Cofinal
+              </label>
+            </div>
+          </div>
+
           {/* Graph Diagram / Illustration Upload (Optional) */}
           <div className="border-t border-black pt-4">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2 flex items-center gap-1.5">
@@ -431,6 +488,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                 setStep('input');
                 setDraftData(null);
                 setCreatedResult(null);
+                setSourceFree(false);
+                setSinkFree(false);
+                setAperiodic(false);
+                setCofinal(false);
                 handleRemoveImage();
               }}
               className="border border-black px-4 py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors rounded-none"

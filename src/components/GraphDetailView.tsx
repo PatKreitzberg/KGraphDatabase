@@ -55,6 +55,10 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
   const [editName, setEditName] = useState<string>('');
   const [editPaper, setEditPaper] = useState<string>('');
   const [editHomology, setEditHomology] = useState<Record<string, string>>({});
+  const [editSourceFree, setEditSourceFree] = useState<boolean>(false);
+  const [editSinkFree, setEditSinkFree] = useState<boolean>(false);
+  const [editAperiodic, setEditAperiodic] = useState<boolean>(false);
+  const [editCofinal, setEditCofinal] = useState<boolean>(false);
   const [isSavingStructure, setIsSavingStructure] = useState<boolean>(false);
 
   // Append Property Mode (Any Visitor)
@@ -142,6 +146,10 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         if (data.properties?.name) setEditName(data.properties.name);
         if (data.properties?.paper) setEditPaper(data.properties.paper);
         if (data.properties?.homology) setEditHomology(data.properties.homology);
+        if (data.properties?.source_free !== undefined) setEditSourceFree(!!data.properties.source_free);
+        if (data.properties?.sink_free !== undefined) setEditSinkFree(!!data.properties.sink_free);
+        if (data.properties?.aperiodic !== undefined) setEditAperiodic(!!data.properties.aperiodic);
+        if (data.properties?.cofinal !== undefined) setEditCofinal(!!data.properties.cofinal);
       }
     } catch (err) {
       console.error('Failed to fetch graph detail:', err);
@@ -190,7 +198,11 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         ...graph.properties,
         name: editName.trim() || undefined,
         paper: editPaper.trim() || undefined,
-        homology: editHomology
+        homology: editHomology,
+        source_free: editSourceFree,
+        sink_free: editSinkFree,
+        aperiodic: editAperiodic,
+        cofinal: editCofinal
       };
 
       const { data, error } = await supabase.rpc('update_graph', {
@@ -362,6 +374,22 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           <div>Color Edge Sets: <strong className="text-black font-bold">{Object.keys(graph.edges).length}</strong></div>
           <div>Commuting Squares: <strong className="text-black font-bold">{graph.commuting_squares.length}</strong></div>
           <div>Commuting Cubes: <strong className="text-black font-bold">{graph.commuting_cubes.length}</strong></div>
+        </div>
+
+        {/* Structural Properties Tag Row */}
+        <div className="flex flex-wrap gap-2 pt-1 font-mono text-xs">
+          <span className={`px-3 py-1.5 font-bold uppercase border ${graph.properties?.source_free ? 'bg-black text-white border-black' : 'bg-neutral-100 text-neutral-400 border-neutral-300'}`}>
+            Source Free: {graph.properties?.source_free ? 'YES' : 'NO'}
+          </span>
+          <span className={`px-3 py-1.5 font-bold uppercase border ${graph.properties?.sink_free ? 'bg-black text-white border-black' : 'bg-neutral-100 text-neutral-400 border-neutral-300'}`}>
+            Sink Free: {graph.properties?.sink_free ? 'YES' : 'NO'}
+          </span>
+          <span className={`px-3 py-1.5 font-bold uppercase border ${graph.properties?.aperiodic ? 'bg-black text-white border-black' : 'bg-neutral-100 text-neutral-400 border-neutral-300'}`}>
+            Aperiodic: {graph.properties?.aperiodic ? 'YES' : 'NO'}
+          </span>
+          <span className={`px-3 py-1.5 font-bold uppercase border ${graph.properties?.cofinal ? 'bg-black text-white border-black' : 'bg-neutral-100 text-neutral-400 border-neutral-300'}`}>
+            Cofinal: {graph.properties?.cofinal ? 'YES' : 'NO'}
+          </span>
         </div>
 
         {/* Attached Diagram / Illustration Image */}
@@ -743,6 +771,51 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
                     onChange={e => setEditPaper(e.target.value)}
                     className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
                   />
+                </div>
+
+                {/* Edit Structural Properties */}
+                <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-black">
+                    Structural Properties
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
+                      <input
+                        type="checkbox"
+                        checked={editSourceFree}
+                        onChange={e => setEditSourceFree(e.target.checked)}
+                        className="w-4 h-4 accent-black"
+                      />
+                      Source Free
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
+                      <input
+                        type="checkbox"
+                        checked={editSinkFree}
+                        onChange={e => setEditSinkFree(e.target.checked)}
+                        className="w-4 h-4 accent-black"
+                      />
+                      Sink Free
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
+                      <input
+                        type="checkbox"
+                        checked={editAperiodic}
+                        onChange={e => setEditAperiodic(e.target.checked)}
+                        className="w-4 h-4 accent-black"
+                      />
+                      Aperiodic
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
+                      <input
+                        type="checkbox"
+                        checked={editCofinal}
+                        onChange={e => setEditCofinal(e.target.checked)}
+                        className="w-4 h-4 accent-black"
+                      />
+                      Cofinal
+                    </label>
+                  </div>
                 </div>
 
                 <HomologyEditor

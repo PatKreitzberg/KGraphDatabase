@@ -79,6 +79,10 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [useHomologyFilter, setUseHomologyFilter] = useState<boolean>(false);
   const [homologyFilterMap, setHomologyFilterMap] = useState<Record<string, string>>({});
+  const [filterSourceFree, setFilterSourceFree] = useState<boolean>(false);
+  const [filterSinkFree, setFilterSinkFree] = useState<boolean>(false);
+  const [filterAperiodic, setFilterAperiodic] = useState<boolean>(false);
+  const [filterCofinal, setFilterCofinal] = useState<boolean>(false);
 
   const [graphs, setGraphs] = useState<KGraph[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -127,6 +131,20 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
         });
       }
 
+      // Client-side structural properties filtering
+      if (filterSourceFree) {
+        filtered = filtered.filter(g => g.properties?.source_free === true);
+      }
+      if (filterSinkFree) {
+        filtered = filtered.filter(g => g.properties?.sink_free === true);
+      }
+      if (filterAperiodic) {
+        filtered = filtered.filter(g => g.properties?.aperiodic === true);
+      }
+      if (filterCofinal) {
+        filtered = filtered.filter(g => g.properties?.cofinal === true);
+      }
+
       // Client-side homology signature filtering if enabled
       if (useHomologyFilter && Object.keys(homologyFilterMap).length > 0) {
         filtered = filtered.filter(g => {
@@ -159,7 +177,7 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
 
   useEffect(() => {
     fetchGraphs();
-  }, [kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap]);
+  }, [kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
 
   const handleCopyJson = (graph: KGraph) => {
     navigator.clipboard.writeText(JSON.stringify(graph, null, 2));
@@ -233,6 +251,51 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
               />
               <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-2 top-2.5" />
             </div>
+          </div>
+        </div>
+
+        {/* Structural Properties Checkbox Filter Bar */}
+        <div className="border-t border-black pt-3">
+          <span className="block text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2">
+            Filter by Structural Properties (Only show graphs containing ticked properties)
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2 border border-black hover:bg-neutral-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={filterSourceFree}
+                onChange={e => setFilterSourceFree(e.target.checked)}
+                className="w-4 h-4 accent-black"
+              />
+              Source Free
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2 border border-black hover:bg-neutral-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={filterSinkFree}
+                onChange={e => setFilterSinkFree(e.target.checked)}
+                className="w-4 h-4 accent-black"
+              />
+              Sink Free
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2 border border-black hover:bg-neutral-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={filterAperiodic}
+                onChange={e => setFilterAperiodic(e.target.checked)}
+                className="w-4 h-4 accent-black"
+              />
+              Aperiodic
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2 border border-black hover:bg-neutral-100 transition-colors">
+              <input
+                type="checkbox"
+                checked={filterCofinal}
+                onChange={e => setFilterCofinal(e.target.checked)}
+                className="w-4 h-4 accent-black"
+              />
+              Cofinal
+            </label>
           </div>
         </div>
 
@@ -337,6 +400,16 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                     </button>
                   </div>
                 </div>
+
+                {/* Structural Property Tags */}
+                {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal) && (
+                  <div className="flex flex-wrap gap-1.5 font-mono text-[10px] pt-1">
+                    {g.properties.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Source Free</span>}
+                    {g.properties.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Sink Free</span>}
+                    {g.properties.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Aperiodic</span>}
+                    {g.properties.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Cofinal</span>}
+                  </div>
+                )}
 
                 {/* Paper Citation Block */}
                 {g.properties?.paper && (
