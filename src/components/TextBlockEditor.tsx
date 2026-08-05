@@ -5,6 +5,7 @@ import { TextParseResult } from '../types';
 
 interface TextBlockEditorProps {
   onParsedSubmit: (result: TextParseResult) => void;
+  onDirty?: () => void;
 }
 
 const SCAFFOLD_TEXT_BLOCK = `# Vertices
@@ -38,20 +39,23 @@ Paper: ArXiv 2026 Topology Studies
 Homology groups: H0=0, H1=\\mathbb{Z}, H2=\\mathbb{Z}^2
 `;
 
-export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit }) => {
+export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit, onDirty }) => {
   const [rawText, setRawText] = useState<string>(SCAFFOLD_TEXT_BLOCK);
   const [showExample, setShowExample] = useState<boolean>(false);
   const [parseResult, setParseResult] = useState<TextParseResult | null>(null);
 
   // Live validation on text change
   useEffect(() => {
+    if (rawText !== SCAFFOLD_TEXT_BLOCK) {
+      onDirty?.();
+    }
     if (!rawText.trim()) {
       setParseResult(null);
       return;
     }
     const res = parseKGraphText(rawText);
     setParseResult(res);
-  }, [rawText]);
+  }, [rawText, onDirty]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

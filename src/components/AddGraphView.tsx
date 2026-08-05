@@ -8,10 +8,12 @@ import { supabase } from '../lib/supabase';
 
 interface AddGraphViewProps {
   onGraphSaved: (graphId: string, token: string) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
-export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
+export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirtyChange }) => {
   const [entryMethod, setEntryMethod] = useState<'matrix' | 'text' | 'file'>('matrix');
+  const [isModified, setIsModified] = useState<boolean>(false);
 
   // Step 1: Draft Data state
   const [draftData, setDraftData] = useState<{
@@ -40,6 +42,37 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
   const [newTagInput, setNewTagInput] = useState<string>('');
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+
+  useEffect(() => {
+    const dirty = (step !== 'completed') && (
+      isModified ||
+      step === 'properties' ||
+      graphName !== '' ||
+      graphDescription !== '' ||
+      paperCitation !== '' ||
+      ownerEmail !== '' ||
+      contactEmail !== '' ||
+      submitterName !== '' ||
+      sourceFree ||
+      sinkFree ||
+      aperiodic ||
+      cofinal ||
+      customTags.length > 0 ||
+      Object.keys(homologyMap).length > 0
+    );
+    onDirtyChange?.(dirty);
+  }, [isModified, step, graphName, graphDescription, paperCitation, ownerEmail, contactEmail, submitterName, sourceFree, sinkFree, aperiodic, cofinal, customTags, homologyMap, onDirtyChange]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (step !== 'completed' && (isModified || step === 'properties')) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [step, isModified]);
 
   useEffect(() => {
     if (step === 'properties') {
@@ -298,9 +331,22 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
           </div>
 
           {/* Render Active Entry Mode */}
-          {entryMethod === 'matrix' && <MatrixBuilder onMatrixSubmit={handleMatrixComplete} />}
+          {entryMethod === 'matrix' && (
+            <MatrixBuilder
+              initialK={draftData?.k}
+              initialVertices={draftData?.vertices}
+              initialEdges={draftData?.edges}
+              initialSquares={draftData?.commuting_squares}
+              initialCubes={draftData?.commuting_cubes}
+              onDirty={() => setIsModified(true)}
+              onMatrixSubmit={handleMatrixComplete}
+            />
+          )}
           {(entryMethod === 'text' || entryMethod === 'file') && (
-            <TextBlockEditor onParsedSubmit={handleTextComplete} />
+            <TextBlockEditor
+              onDirty={() => setIsModified(true)}
+              onParsedSubmit={handleTextComplete}
+            />
           )}
         </div>
       )}
@@ -751,6 +797,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                 setSinkFree(false);
                 setAperiodic(false);
                 setCofinal(false);
+                setIsModified(false);
                 handleRemoveImage();
               }}
               className="border border-black px-4 py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors rounded-none"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PlusCircle, Search, Server, Layers, FileCode, ExternalLink, HelpCircle } from 'lucide-react';
 import { AddGraphView } from './components/AddGraphView';
 import { SearchGraphView } from './components/SearchGraphView';
@@ -13,11 +13,40 @@ export default function App() {
   const [activeEditToken, setActiveEditToken] = useState<string | undefined>(undefined);
   const [editOrigin, setEditOrigin] = useState<'search' | 'detail'>('search');
   const [isPhpModalOpen, setIsPhpModalOpen] = useState<boolean>(false);
+  const [isAddGraphDirty, setIsAddGraphDirty] = useState<boolean>(false);
+
+  const activeTabRef = useRef(activeTab);
+  const isAddGraphDirtyRef = useRef(isAddGraphDirty);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    isAddGraphDirtyRef.current = isAddGraphDirty;
+  }, [activeTab, isAddGraphDirty]);
+
+  const confirmLeaveAddGraph = (): boolean => {
+    if (activeTabRef.current === 'add' && isAddGraphDirtyRef.current) {
+      const confirmed = window.confirm("You have unsaved modifications to your graph record. Are you sure you want to exit without saving?");
+      if (confirmed) {
+        setIsAddGraphDirty(false);
+        isAddGraphDirtyRef.current = false;
+        return true;
+      }
+      return false;
+    }
+    return true;
+  };
 
   // Hash-based routing to support emailed token links e.g. #edit/graph-123?token=tok_xyz
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#/, '');
+      if (activeTabRef.current === 'add' && hash !== 'add') {
+        if (!confirmLeaveAddGraph()) {
+          window.location.hash = 'add';
+          return;
+        }
+      }
+
       if (hash.startsWith('edit/')) {
         const parts = hash.split('?');
         const id = parts[0].replace(/^edit\//, '');
@@ -54,6 +83,8 @@ export default function App() {
   }, []);
 
   const handleGraphSaved = (graphId: string, token: string) => {
+    setIsAddGraphDirty(false);
+    isAddGraphDirtyRef.current = false;
     setSelectedGraphId(graphId);
     setActiveEditToken(token);
     setActiveTab('detail');
@@ -99,7 +130,11 @@ export default function App() {
           <div className="flex flex-col">
             <a
               href="#search"
-              onClick={() => {
+              onClick={(e) => {
+                if (!confirmLeaveAddGraph()) {
+                  e.preventDefault();
+                  return;
+                }
                 setActiveTab('search');
                 window.location.hash = 'search';
               }}
@@ -131,7 +166,11 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => {
+              onClick={(e) => {
+                if (!confirmLeaveAddGraph()) {
+                  e.preventDefault();
+                  return;
+                }
                 setActiveTab('search');
                 window.location.hash = 'search';
               }}
@@ -159,7 +198,7 @@ export default function App() {
 
       {/* Main Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
-        {activeTab === 'add' && <AddGraphView onGraphSaved={handleGraphSaved} />}
+        {activeTab === 'add' && <AddGraphView onGraphSaved={handleGraphSaved} onDirtyChange={setIsAddGraphDirty} />}
         
         <div className={activeTab === 'search' ? '' : 'hidden'}>
           <SearchGraphView

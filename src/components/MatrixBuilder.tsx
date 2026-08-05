@@ -8,6 +8,7 @@ interface MatrixBuilderProps {
   initialEdges?: Record<string, [string, string, string][]>;
   initialSquares?: CommutingPath[];
   initialCubes?: CommutingPath[];
+  onDirty?: () => void;
   onMatrixSubmit: (data: {
     k: number;
     vertices: string[];
@@ -53,10 +54,13 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
   initialEdges,
   initialSquares,
   initialCubes,
+  onDirty,
   onMatrixSubmit
 }) => {
   const [k, setK] = useState<number>(initialK ?? 2);
+  const [kInput, setKInput] = useState<string>(String(initialK ?? 2));
   const [numVertices, setNumVertices] = useState<number>(initialVertices?.length ?? 3);
+  const [numVerticesInput, setNumVerticesInput] = useState<string>(String(initialVertices?.length ?? 3));
   const [vertices, setVertices] = useState<string[]>(initialVertices ?? ['v0', 'v1', 'v2']);
 
   // matrices[colorIndex][row][col] = number
@@ -142,6 +146,7 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
     const updated = [...vertices];
     updated[index] = cleanName;
     setVertices(updated);
+    onDirty?.();
   };
 
   const handleCellValueChange = (colorIndex: number, row: number, col: number, rawVal: string) => {
@@ -164,6 +169,7 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
       return r.map((c, cIdx) => (cIdx === col ? numVal : c));
     });
     setMatrices(updated);
+    onDirty?.();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -278,11 +284,25 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
             NUMBER OF COLORS (k)
           </label>
           <input
-            type="number"
-            min="1"
-            max="20"
-            value={k}
-            onChange={e => setK(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={kInput}
+            onChange={e => {
+              const valStr = e.target.value.replace(/\D/g, '');
+              setKInput(valStr);
+              onDirty?.();
+              const valNum = parseInt(valStr, 10);
+              if (!isNaN(valNum) && valNum >= 1) {
+                setK(valNum);
+              }
+            }}
+            onBlur={() => {
+              if (!kInput || parseInt(kInput, 10) < 1) {
+                setK(1);
+                setKInput('1');
+              }
+            }}
             onFocus={e => e.target.select()}
             onMouseUp={e => e.preventDefault()}
             onClick={e => (e.target as HTMLInputElement).select()}
@@ -296,11 +316,25 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
             VERTICES COUNT
           </label>
           <input
-            type="number"
-            min="2"
-            max="20"
-            value={numVertices}
-            onChange={e => setNumVertices(Math.max(2, Math.min(20, parseInt(e.target.value, 10) || 2)))}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={numVerticesInput}
+            onChange={e => {
+              const valStr = e.target.value.replace(/\D/g, '');
+              setNumVerticesInput(valStr);
+              onDirty?.();
+              const valNum = parseInt(valStr, 10);
+              if (!isNaN(valNum) && valNum >= 2) {
+                setNumVertices(valNum);
+              }
+            }}
+            onBlur={() => {
+              if (!numVerticesInput || parseInt(numVerticesInput, 10) < 2) {
+                setNumVertices(2);
+                setNumVerticesInput('2');
+              }
+            }}
             onFocus={e => e.target.select()}
             onMouseUp={e => e.preventDefault()}
             onClick={e => (e.target as HTMLInputElement).select()}
@@ -458,7 +492,7 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
           <textarea
             rows={3}
             value={squaresText}
-            onChange={e => setSquaresText(e.target.value)}
+            onChange={e => { setSquaresText(e.target.value); onDirty?.(); }}
             placeholder="e0 e1 ~ e2 e3"
             className="w-full font-mono text-xs border border-black p-3 bg-white focus:border-black focus:outline-none rounded-none transition-colors"
           />
@@ -497,7 +531,7 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
           <textarea
             rows={3}
             value={cubesText}
-            onChange={e => setCubesText(e.target.value)}
+            onChange={e => { setCubesText(e.target.value); onDirty?.(); }}
             placeholder="e0 e1 e2 ~ e3 e4 e5"
             className="w-full font-mono text-xs border border-black p-3 bg-white focus:border-black focus:outline-none rounded-none transition-colors"
           />
