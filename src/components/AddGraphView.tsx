@@ -5,6 +5,7 @@ import { TextBlockEditor } from './TextBlockEditor';
 import { HomologyEditor } from './HomologyEditor';
 import { TextParseResult, KGraphProperties, CommutingPath } from '../types';
 import { supabase } from '../lib/supabase';
+import { draftToTextBlock } from '../lib/parser';
 
 interface AddGraphViewProps {
   onGraphSaved: (graphId: string, token: string) => void;
@@ -23,6 +24,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
     commuting_squares: CommutingPath[];
     commuting_cubes: CommutingPath[];
   } | null>(null);
+  const [draftText, setDraftText] = useState<string>('');
 
   // Step 2: Properties & Submitter Email state
   const [step, setStep] = useState<'input' | 'properties' | 'completed'>('input');
@@ -139,11 +141,13 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
       commuting_squares: data.commuting_squares,
       commuting_cubes: data.commuting_cubes
     });
+    setDraftText(draftToTextBlock(data));
     setStep('properties');
   };
 
   // Handler for Text / File parser completion
-  const handleTextComplete = (res: TextParseResult) => {
+  const handleTextComplete = (res: TextParseResult, submittedText: string) => {
+    setDraftText(submittedText);
     if (res.graph) {
       setDraftData({
         k: res.graph.k,
@@ -344,6 +348,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
           )}
           {(entryMethod === 'text' || entryMethod === 'file') && (
             <TextBlockEditor
+              initialText={draftText || (draftData ? draftToTextBlock(draftData) : '')}
               onDirty={() => setIsModified(true)}
               onParsedSubmit={handleTextComplete}
             />

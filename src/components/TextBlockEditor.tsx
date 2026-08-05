@@ -4,7 +4,8 @@ import { parseKGraphText } from '../lib/parser';
 import { TextParseResult } from '../types';
 
 interface TextBlockEditorProps {
-  onParsedSubmit: (result: TextParseResult) => void;
+  initialText?: string;
+  onParsedSubmit: (result: TextParseResult, submittedText: string) => void;
   onDirty?: () => void;
 }
 
@@ -32,7 +33,7 @@ e3 v1 v3
 e0 e3 ~ e2 e1
 `;
 
-export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit, onDirty }) => {
+export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, onParsedSubmit, onDirty }) => {
   const [k, setK] = useState<number>(2);
   const [kInput, setKInput] = useState<string>('2');
   const [verticesText, setVerticesText] = useState<string>('');
@@ -133,6 +134,12 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
     onDirty?.();
   };
 
+  useEffect(() => {
+    if (initialText && initialText.trim()) {
+      loadFromTextBlock(initialText);
+    }
+  }, [initialText]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -170,7 +177,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ onParsedSubmit
     e.preventDefault();
     const res = parseKGraphText(combinedText);
     if (res.success && res.graph) {
-      onParsedSubmit(res);
+      onParsedSubmit(res, combinedText);
     }
   };
 

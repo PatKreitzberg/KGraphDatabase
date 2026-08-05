@@ -272,3 +272,47 @@ export function formatKGraphToText(graph: {
 
   return lines.join('\n');
 }
+
+export function draftToTextBlock(graph: {
+  k: number;
+  vertices: string[];
+  edges: Record<string, [string, string, string][]>;
+  commuting_squares: { path_a: string[]; path_b: string[] }[];
+  commuting_cubes: { path_a: string[]; path_b: string[] }[];
+}): string {
+  const lines: string[] = [];
+
+  lines.push('# Vertices');
+  lines.push((graph.vertices || []).join(' '));
+  lines.push('');
+
+  for (let i = 1; i <= (graph.k || 1); i++) {
+    lines.push(`# Color ${i} Edges`);
+    const edges = graph.edges?.[`color_${i}`] || [];
+    for (const [eId, src, tgt] of edges) {
+      lines.push(`${eId} ${src} ${tgt}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('# Commuting Squares');
+  if (graph.commuting_squares && graph.commuting_squares.length > 0) {
+    for (const sq of graph.commuting_squares) {
+      lines.push(`${sq.path_a.join(' ')} ~ ${sq.path_b.join(' ')}`);
+    }
+  }
+  lines.push('');
+
+  if (graph.k > 2) {
+    lines.push('# Commuting Cubes');
+    if (graph.commuting_cubes && graph.commuting_cubes.length > 0) {
+      for (const cb of graph.commuting_cubes) {
+        lines.push(`${cb.path_a.join(' ')} ~ ${cb.path_b.join(' ')}`);
+      }
+    }
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
