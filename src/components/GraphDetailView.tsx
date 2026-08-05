@@ -54,11 +54,15 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
   } | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [editPaper, setEditPaper] = useState<string>('');
+  const [editSubmitterName, setEditSubmitterName] = useState<string>('');
+  const [editContactEmail, setEditContactEmail] = useState<string>('');
   const [editHomology, setEditHomology] = useState<Record<string, string>>({});
   const [editSourceFree, setEditSourceFree] = useState<boolean>(false);
   const [editSinkFree, setEditSinkFree] = useState<boolean>(false);
   const [editAperiodic, setEditAperiodic] = useState<boolean>(false);
   const [editCofinal, setEditCofinal] = useState<boolean>(false);
+  const [editCustomTags, setEditCustomTags] = useState<string[]>([]);
+  const [editNewTagInput, setEditNewTagInput] = useState<string>('');
   const [isSavingStructure, setIsSavingStructure] = useState<boolean>(false);
 
   // Append Property Mode (Any Visitor)
@@ -145,11 +149,14 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         setIsTokenValid(isOwner);
         if (data.properties?.name) setEditName(data.properties.name);
         if (data.properties?.paper) setEditPaper(data.properties.paper);
+        if (data.properties?.submitter_name) setEditSubmitterName(data.properties.submitter_name);
+        if (data.properties?.contact_email) setEditContactEmail(data.properties.contact_email);
         if (data.properties?.homology) setEditHomology(data.properties.homology);
         if (data.properties?.source_free !== undefined) setEditSourceFree(!!data.properties.source_free);
         if (data.properties?.sink_free !== undefined) setEditSinkFree(!!data.properties.sink_free);
         if (data.properties?.aperiodic !== undefined) setEditAperiodic(!!data.properties.aperiodic);
         if (data.properties?.cofinal !== undefined) setEditCofinal(!!data.properties.cofinal);
+        if (data.properties?.tags) setEditCustomTags(data.properties.tags);
       }
     } catch (err) {
       console.error('Failed to fetch graph detail:', err);
@@ -198,11 +205,14 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         ...graph.properties,
         name: editName.trim() || undefined,
         paper: editPaper.trim() || undefined,
+        submitter_name: editSubmitterName.trim() || undefined,
+        contact_email: editContactEmail.trim() || undefined,
         homology: editHomology,
         source_free: editSourceFree,
         sink_free: editSinkFree,
         aperiodic: editAperiodic,
-        cofinal: editCofinal
+        cofinal: editCofinal,
+        tags: editCustomTags.length > 0 ? editCustomTags : undefined
       };
 
       const { data, error } = await supabase.rpc('update_graph', {
@@ -364,7 +374,8 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
 
           <div className="text-right font-mono text-[10px] uppercase text-neutral-500 tracking-wider">
             <div>Submitted: {new Date(graph.created_at).toLocaleDateString()}</div>
-            <div>Owner: {graph.owner_email}</div>
+            {graph.properties?.submitter_name && <div>Contributor: <span className="text-black font-bold">{graph.properties.submitter_name}</span></div>}
+            <div>Contact: <span className="text-neutral-600">{graph.properties?.contact_email || graph.owner_email}</span></div>
           </div>
         </div>
 
@@ -390,6 +401,11 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           <span className={`px-3 py-1.5 font-bold uppercase border ${graph.properties?.cofinal ? 'bg-black text-white border-black' : 'bg-neutral-100 text-neutral-400 border-neutral-300'}`}>
             Cofinal: {graph.properties?.cofinal ? 'YES' : 'NO'}
           </span>
+          {graph.properties?.tags && graph.properties.tags.map((tag, idx) => (
+            <span key={idx} className="px-3 py-1.5 font-bold uppercase border bg-neutral-200 text-neutral-900 border-neutral-400">
+              {tag}
+            </span>
+          ))}
         </div>
 
         {/* Attached Diagram / Illustration Image */}
@@ -773,6 +789,32 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
                   />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                      Edit Contributor Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editSubmitterName}
+                      onChange={e => setEditSubmitterName(e.target.value)}
+                      className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                      Edit Public Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editContactEmail}
+                      onChange={e => setEditContactEmail(e.target.value)}
+                      placeholder={graph?.owner_email || 'researcher@university.edu'}
+                      className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
+                    />
+                  </div>
+                </div>
+
                 {/* Edit Structural Properties */}
                 <div className="border border-black bg-[#fafafa] p-4 space-y-3">
                   <span className="block text-xs font-bold uppercase tracking-wider text-black">
@@ -816,6 +858,63 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
                       Cofinal
                     </label>
                   </div>
+                </div>
+
+                {/* Edit Custom Tags */}
+                <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-black">
+                    Edit Custom Tags &amp; Classifications
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editNewTagInput}
+                      onChange={e => setEditNewTagInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (editNewTagInput.trim() && !editCustomTags.includes(editNewTagInput.trim())) {
+                            setEditCustomTags([...editCustomTags, editNewTagInput.trim()]);
+                            setEditNewTagInput('');
+                          }
+                        }
+                      }}
+                      placeholder="e.g. Row-Finite"
+                      className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (editNewTagInput.trim() && !editCustomTags.includes(editNewTagInput.trim())) {
+                          setEditCustomTags([...editCustomTags, editNewTagInput.trim()]);
+                          setEditNewTagInput('');
+                        }
+                      }}
+                      className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
+                    >
+                      Add Tag
+                    </button>
+                  </div>
+                  {editCustomTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {editCustomTags.map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="bg-neutral-200 border border-neutral-400 text-neutral-900 font-mono text-xs font-bold uppercase px-2.5 py-1 flex items-center gap-1.5"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => setEditCustomTags(editCustomTags.filter((_, i) => i !== idx))}
+                            className="text-neutral-500 hover:text-red-700 font-bold cursor-pointer"
+                            title="Remove Tag"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <HomologyEditor

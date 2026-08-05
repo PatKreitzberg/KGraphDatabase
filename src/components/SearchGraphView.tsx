@@ -125,9 +125,12 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
         filtered = filtered.filter(g => {
           const nameMatch = g.properties?.name?.toLowerCase().includes(q);
           const paperMatch = g.properties?.paper?.toLowerCase().includes(q);
+          const contributorMatch = g.properties?.submitter_name?.toLowerCase().includes(q);
+          const contactMatch = g.properties?.contact_email?.toLowerCase().includes(q);
           const emailMatch = g.owner_email.toLowerCase().includes(q);
           const idMatch = g.id.toLowerCase().includes(q);
-          return nameMatch || paperMatch || emailMatch || idMatch;
+          const tagMatch = g.properties?.tags?.some(t => t.toLowerCase().includes(q)) ?? false;
+          return nameMatch || paperMatch || contributorMatch || contactMatch || emailMatch || idMatch || tagMatch;
         });
       }
 
@@ -401,13 +404,18 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                   </div>
                 </div>
 
-                {/* Structural Property Tags */}
-                {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal) && (
+                {/* Structural Property & Custom Tags */}
+                {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal || (g.properties?.tags && g.properties.tags.length > 0)) && (
                   <div className="flex flex-wrap gap-1.5 font-mono text-[10px] pt-1">
-                    {g.properties.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Source Free</span>}
-                    {g.properties.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Sink Free</span>}
-                    {g.properties.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Aperiodic</span>}
-                    {g.properties.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Cofinal</span>}
+                    {g.properties?.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Source Free</span>}
+                    {g.properties?.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Sink Free</span>}
+                    {g.properties?.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Aperiodic</span>}
+                    {g.properties?.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Cofinal</span>}
+                    {g.properties?.tags && g.properties.tags.map((t, i) => (
+                      <span key={i} className="bg-neutral-200 border border-neutral-400 text-neutral-900 px-2 py-0.5 font-bold uppercase tracking-wider">
+                        {t}
+                      </span>
+                    ))}
                   </div>
                 )}
 
@@ -469,7 +477,8 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                     <div>Vertices ({g.vertices.length}): <span className="text-black font-bold">{g.vertices.join(', ')}</span></div>
                     <div>Commuting Squares: <span className="text-black font-bold">{g.commuting_squares.length}</span></div>
                     <div>Commuting Cubes: <span className="text-black font-bold">{g.commuting_cubes.length}</span></div>
-                    <div>Owner: <span className="text-neutral-600">{g.owner_email}</span></div>
+                    {g.properties?.submitter_name && <div>Contributor: <span className="text-black font-bold">{g.properties.submitter_name}</span></div>}
+                    <div>Contact Email: <span className="text-neutral-600">{g.properties?.contact_email || g.owner_email}</span></div>
                   </div>
 
                   {/* Right: Homology LaTeX */}

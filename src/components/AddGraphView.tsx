@@ -26,15 +26,15 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
   const [step, setStep] = useState<'input' | 'properties' | 'completed'>('input');
   const [graphName, setGraphName] = useState('');
   const [paperCitation, setPaperCitation] = useState('');
-  const [homologyMap, setHomologyMap] = useState<Record<string, string>>({
-    H0: '0',
-    H1: '\\mathbb{Z}'
-  });
+  const [homologyMap, setHomologyMap] = useState<Record<string, string>>({});
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [submitterName, setSubmitterName] = useState('');
   const [sourceFree, setSourceFree] = useState(false);
   const [sinkFree, setSinkFree] = useState(false);
   const [aperiodic, setAperiodic] = useState(false);
   const [cofinal, setCofinal] = useState(false);
+  const [customTags, setCustomTags] = useState<string[]>([]);
+  const [newTagInput, setNewTagInput] = useState<string>('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>('');
@@ -95,7 +95,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
 
       if (res.graph.properties?.name) setGraphName(res.graph.properties.name);
       if (res.graph.properties?.paper) setPaperCitation(res.graph.properties.paper);
+      if (res.graph.properties?.submitter_name) setSubmitterName(res.graph.properties.submitter_name);
+      if (res.graph.properties?.contact_email) setOwnerEmail(res.graph.properties.contact_email);
       if (res.graph.properties?.homology) setHomologyMap(res.graph.properties.homology);
+      if (res.graph.properties?.tags) setCustomTags(res.graph.properties.tags);
       if (res.graph.properties?.source_free !== undefined) setSourceFree(!!res.graph.properties.source_free);
       if (res.graph.properties?.sink_free !== undefined) setSinkFree(!!res.graph.properties.sink_free);
       if (res.graph.properties?.aperiodic !== undefined) setAperiodic(!!res.graph.properties.aperiodic);
@@ -152,8 +155,11 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
         properties: {
           name: graphName.trim() || undefined,
           paper: paperCitation.trim() || undefined,
+          submitter_name: submitterName.trim() || undefined,
+          contact_email: ownerEmail.trim() || undefined,
           image_url: uploadedImageUrl,
           homology: homologyMap,
+          tags: customTags.length > 0 ? customTags : undefined,
           source_free: sourceFree,
           sink_free: sinkFree,
           aperiodic: aperiodic,
@@ -282,7 +288,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
           <HomologyEditor
             initialHomology={homologyMap}
             onChange={setHomologyMap}
-            title="Graph Homology Group Signature"
+            title="Groupoid Homology"
           />
 
           {/* Meta Fields */}
@@ -359,6 +365,66 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             </div>
           </div>
 
+          {/* Custom Tags / Classifications */}
+          <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
+              Custom Tags &amp; Classifications (Optional)
+            </span>
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
+              Add additional custom properties or descriptive tags (e.g., &quot;Row-Finite&quot;, &quot;Rank-3 Basic&quot;). Press Enter or click Add Tag to attach.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newTagInput}
+                onChange={e => setNewTagInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
+                      setCustomTags([...customTags, newTagInput.trim()]);
+                      setNewTagInput('');
+                    }
+                  }
+                }}
+                placeholder="e.g. Row-Finite, Strongly Connected"
+                className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
+                    setCustomTags([...customTags, newTagInput.trim()]);
+                    setNewTagInput('');
+                  }
+                }}
+                className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
+              >
+                Add Tag
+              </button>
+            </div>
+            {customTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {customTags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="bg-neutral-200 border border-neutral-400 text-neutral-900 font-mono text-xs font-bold uppercase px-2.5 py-1 flex items-center gap-1.5"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => setCustomTags(customTags.filter((_, i) => i !== idx))}
+                      className="text-neutral-500 hover:text-red-700 font-bold cursor-pointer"
+                      title="Remove Tag"
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Graph Diagram / Illustration Upload (Optional) */}
           <div className="border-t border-black pt-4">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2 flex items-center gap-1.5">
@@ -397,23 +463,43 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             )}
           </div>
 
-          {/* Required Submitter Email */}
-          <div className="border-t border-black pt-4">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
-              <Mail className="w-4 h-4 text-black" />
-              Submitter Email (Required) <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="email"
-              required
-              value={ownerEmail}
-              onChange={e => setOwnerEmail(e.target.value)}
-              placeholder="researcher@university.edu"
-              className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-            />
-            <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
-              An edit token will be generated and sent to this address upon successful validation.
-            </p>
+          {/* Submitter & Contact Information */}
+          <div className="border-t border-black pt-4 space-y-4">
+            <span className="text-xs font-bold uppercase tracking-wider text-black block">
+              Contributor & Contact Information
+            </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Your Name / Contributor Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={submitterName}
+                  onChange={e => setSubmitterName(e.target.value)}
+                  placeholder="e.g. Prof. Jane Doe, Dr. Alex Vance"
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-black" />
+                  Contact Email Address (Required) <span className="text-red-600">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={ownerEmail}
+                  onChange={e => setOwnerEmail(e.target.value)}
+                  placeholder="researcher@university.edu"
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+                <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                  Associated with your direct edit token and displayed as public contact.
+                </p>
+              </div>
+            </div>
           </div>
 
           {errorMessage && (
@@ -487,6 +573,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
               onClick={() => {
                 setStep('input');
                 setDraftData(null);
+                setSubmitterName('');
+                setHomologyMap({});
+                setCustomTags([]);
+                setNewTagInput('');
                 setCreatedResult(null);
                 setSourceFree(false);
                 setSinkFree(false);

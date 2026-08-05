@@ -143,7 +143,7 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
       <div className="flex flex-wrap items-center justify-between pb-3 border-b border-black gap-2">
         <div>
           <h3 className="font-bold text-xs uppercase tracking-widest text-black">{title}</h3>
-          <p className="text-[10px] uppercase text-neutral-500 tracking-wider mt-0.5">Construct homology group signatures with integer ranks and torsion subgroups.</p>
+          <p className="text-[10px] uppercase text-neutral-500 tracking-wider mt-0.5">Construct groupoid homology tool</p>
         </div>
         {!readOnly && (
           <button

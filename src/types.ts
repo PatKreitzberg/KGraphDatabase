@@ -6,9 +6,12 @@ export interface CommutingPath {
 export interface KGraphProperties {
   name?: string;
   paper?: string;
+  submitter_name?: string;
+  contact_email?: string;
   image_url?: string;
   homology?: Record<string, string>;
   custom?: Record<string, string>;
+  tags?: string[];
   source_free?: boolean;
   sink_free?: boolean;
   aperiodic?: boolean;
