@@ -4,8 +4,7 @@ import { parseKGraphText } from '../lib/parser';
 import { TextParseResult } from '../types';
 
 interface TextBlockEditorProps {
-  initialText?: string;
-  onParsedSubmit: (result: TextParseResult, submittedText: string) => void;
+  onParsedSubmit: (result: TextParseResult) => void;
   onDirty?: () => void;
 }
 
@@ -134,12 +133,6 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
     onDirty?.();
   };
 
-  useEffect(() => {
-    if (initialText && initialText.trim()) {
-      loadFromTextBlock(initialText);
-    }
-  }, [initialText]);
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -177,7 +170,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
     e.preventDefault();
     const res = parseKGraphText(combinedText);
     if (res.success && res.graph) {
-      onParsedSubmit(res, combinedText);
+      onParsedSubmit(res);
     }
   };
 
@@ -318,14 +311,13 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
         {/* Vertices Section */}
         <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
-            <span># Vertices</span>
+            <span># Vertices (e.g. v0 v1 v2)</span>
             <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
           </div>
           <textarea
             rows={2}
             value={verticesText}
             onChange={e => { setVerticesText(e.target.value); onDirty?.(); }}
-            placeholder="v0 v1 v2 v3"
             className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
           />
         </div>
@@ -334,7 +326,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
         {Array.from({ length: k }, (_, idx) => idx + 1).map(c => (
           <div key={c} className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
-              <span># Color {c} Edges</span>
+              <span># Color {c} Edges (e.g. e0 v3 v2)</span>
               <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
             </div>
             <textarea
@@ -344,7 +336,6 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
                 setEdgesText(prev => ({ ...prev, [c]: e.target.value }));
                 onDirty?.();
               }}
-              placeholder={`e${(c-1)*2} v0 v1\ne${(c-1)*2 + 1} v2 v3`}
               className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
             />
           </div>
@@ -353,14 +344,13 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
         {/* Commuting Squares Section */}
         <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
-            <span># Commuting Squares</span>
+            <span># Commuting Squares (e.g. e2 e1 ~ e0 e4)</span>
             <span className="text-[9px] text-neutral-400 uppercase tracking-widest font-sans font-normal"></span>
           </div>
           <textarea
             rows={3}
             value={squaresText}
             onChange={e => { setSquaresText(e.target.value); onDirty?.(); }}
-            placeholder="e0 e3 ~ e2 e1"
             className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
           />
         </div>
@@ -369,14 +359,13 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
         {k > 2 && (
           <div className="border border-black bg-white shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <div className="bg-black text-white px-4 py-2 font-mono text-xs font-bold flex items-center justify-between border-b border-black select-none">
-              <span># Commuting Cubes</span>
-              <span className="text-[9px] text-amber-400 uppercase tracking-widest font-sans font-bold">Required for k &gt; 2 • Immutable Header</span>
+              <span># Commuting Cubes (e.g. e8 e2 e1 ~ e0 e4 e7)</span>
+              <span className="text-[9px] text-amber-400 uppercase tracking-widest font-sans font-bold">Required for k &gt; 2 </span>
             </div>
             <textarea
               rows={3}
               value={cubesText}
               onChange={e => { setCubesText(e.target.value); onDirty?.(); }}
-              placeholder="e0 e1 e2 ~ e3 e4 e5"
               className="w-full font-mono text-[11px] p-4 border-0 focus:outline-none leading-relaxed rounded-none transition-colors bg-white text-black placeholder:text-neutral-400"
             />
           </div>
