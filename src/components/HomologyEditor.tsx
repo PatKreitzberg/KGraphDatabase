@@ -140,10 +140,9 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
 
   return (
     <div className="border border-black bg-white p-6 rounded-none font-sans space-y-4">
-      <div className="flex flex-wrap items-center justify-between pb-3 border-b border-black gap-2">
+      <div className={`flex flex-wrap items-center justify-between gap-2 ${rows.length > 0 ? 'pb-3 border-b border-black' : ''}`}>
         <div>
           <h3 className="font-bold text-xs uppercase tracking-widest text-black">{title}</h3>
-          <p className="text-[10px] uppercase text-neutral-500 tracking-wider mt-0.5">Construct groupoid homology tool</p>
         </div>
         {!readOnly && (
           <button
@@ -157,21 +156,7 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
         )}
       </div>
 
-      {rows.length === 0 ? (
-        <div className="p-6 border border-black bg-[#fafafa] text-center space-y-3 font-mono">
-          <p className="text-xs text-neutral-500 uppercase tracking-wider">No homology groups defined.</p>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest border border-black bg-black text-white hover:bg-neutral-800 px-4 py-2 transition-colors cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Add Homology Group
-            </button>
-          )}
-        </div>
-      ) : (
+      {rows.length > 0 && (
         <div className="space-y-4">
           {rows.map((row, rIdx) => {
             const currentLatex = rowToLatex(row);
