@@ -263,17 +263,17 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
       {step === 'properties' && draftData && (
         <form onSubmit={handleFinalSubmit} className="space-y-6 border border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
           <div className="flex items-center justify-between border-b border-black pb-3">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">Step 2 of 2</span>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-black">Graph Properties &amp; Submitter Contact</h3>
-            </div>
             <button
               type="button"
               onClick={() => setStep('input')}
-              className="text-xs font-bold uppercase tracking-wider text-black hover:bg-black hover:text-white flex items-center gap-1 border border-black px-3 py-1 transition-colors"
-            >
+              className="text-xs font-bold uppercase tracking-wider text-black hover:bg-black hover:text-white flex items-center gap-1 border border-black px-3 py-1 transition-colors">
+
               <ArrowLeft className="w-3.5 h-3.5" /> Back
             </button>
+p            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">Step 2 of 2</span>
+            </div>
+
           </div>
 
           {/* SECTION 1: GRAPH INFORMATION */}
@@ -354,10 +354,11 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
 
             {/* Basic Information */}
             <div>
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2">
-                Basic Information
-              </span>
               <div className="bg-[#fafafa] border border-black p-4 font-mono text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
+                Basic Information 
+              </span>
+
                 <div>Colors (k): <span className="font-bold text-black">{draftData.k}</span></div>
                 <div>Vertices: <span className="font-bold text-black">{draftData.vertices.length}</span></div>
                 <div>Commuting Squares: <span className="font-bold text-black">{draftData.commuting_squares.length}</span></div>
