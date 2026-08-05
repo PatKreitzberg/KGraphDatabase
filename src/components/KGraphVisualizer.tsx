@@ -7,6 +7,7 @@ interface KGraphVisualizerProps {
   edges: Record<string, [string, string, string][]>;
   commutingSquares?: CommutingPath[];
   commutingCubes?: CommutingPath[];
+  hideCommuting?: boolean;
 }
 
 const COLOR_PALETTE = [
@@ -36,7 +37,8 @@ export const KGraphVisualizer: React.FC<KGraphVisualizerProps> = ({
   vertices,
   edges,
   commutingSquares = [],
-  commutingCubes = []
+  commutingCubes = [],
+  hideCommuting = false
 }) => {
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const [hoveredVertex, setHoveredVertex] = useState<string | null>(null);
@@ -210,9 +212,9 @@ export const KGraphVisualizer: React.FC<KGraphVisualizerProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 ${hideCommuting ? '' : 'lg:grid-cols-3'} gap-4`}>
         {/* SVG Diagram Canvas */}
-        <div className="lg:col-span-2 bg-[#fafafa] border border-black p-4 flex items-center justify-center relative min-h-[340px] select-none">
+        <div className={`${hideCommuting ? 'col-span-1' : 'lg:col-span-2'} bg-[#fafafa] border border-black p-4 flex items-center justify-center relative min-h-[340px] select-none`}>
           <svg
             ref={svgRef}
             viewBox="0 0 400 320"
@@ -376,56 +378,58 @@ export const KGraphVisualizer: React.FC<KGraphVisualizerProps> = ({
         </div>
 
         {/* Commuting Relations Panel */}
-        <div className="border border-black bg-[#fafafa] p-4 space-y-4 font-mono text-xs">
-          <div>
-            <h5 className="font-bold uppercase tracking-wider text-black border-b border-black pb-1 mb-2 text-[10px]">
-              Commuting Squares ({commutingSquares.length})
-            </h5>
-            {commutingSquares.length === 0 ? (
-              <p className="text-neutral-400 text-[10px] uppercase">No commuting squares recorded.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {commutingSquares.map((sq, idx) => (
-                  <div
-                    key={idx}
-                    onMouseEnter={() => setHighlightedSquareIdx(idx)}
-                    onMouseLeave={() => setHighlightedSquareIdx(null)}
-                    className={`p-2 border transition-colors cursor-pointer ${
-                      highlightedSquareIdx === idx
-                        ? 'bg-black text-white border-black font-bold'
-                        : 'bg-white text-neutral-800 border-black hover:bg-black hover:text-white'
-                    }`}
-                  >
-                    <div className="text-[10px] tracking-wider">
-                      <span className="font-bold">{sq.path_a.join(' ')}</span>
-                      <span className="mx-1 text-neutral-400">~</span>
-                      <span className="font-bold">{sq.path_b.join(' ')}</span>
+        {!hideCommuting && (
+          <div className="border border-black bg-[#fafafa] p-4 space-y-4 font-mono text-xs">
+            <div>
+              <h5 className="font-bold uppercase tracking-wider text-black border-b border-black pb-1 mb-2 text-[10px]">
+                Commuting Squares ({commutingSquares.length})
+              </h5>
+              {commutingSquares.length === 0 ? (
+                <p className="text-neutral-400 text-[10px] uppercase">No commuting squares recorded.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {commutingSquares.map((sq, idx) => (
+                    <div
+                      key={idx}
+                      onMouseEnter={() => setHighlightedSquareIdx(idx)}
+                      onMouseLeave={() => setHighlightedSquareIdx(null)}
+                      className={`p-2 border transition-colors cursor-pointer ${
+                        highlightedSquareIdx === idx
+                          ? 'bg-black text-white border-black font-bold'
+                          : 'bg-white text-neutral-800 border-black hover:bg-black hover:text-white'
+                      }`}
+                    >
+                      <div className="text-[10px] tracking-wider">
+                        <span className="font-bold">{sq.path_a.join(' ')}</span>
+                        <span className="mx-1 text-neutral-400">~</span>
+                        <span className="font-bold">{sq.path_b.join(' ')}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          <div>
-            <h5 className="font-bold uppercase tracking-wider text-black border-b border-black pb-1 mb-2 text-[10px]">
-              Commuting Cubes ({commutingCubes.length})
-            </h5>
-            {commutingCubes.length === 0 ? (
-              <p className="text-neutral-400 text-[10px] uppercase">No commuting cubes recorded.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {commutingCubes.map((cb, idx) => (
-                  <div key={idx} className="p-2 bg-white border border-black text-[10px] tracking-wider">
-                    <span className="font-bold">{cb.path_a.join(' ')}</span>
-                    <span className="mx-1 text-neutral-400">~</span>
-                    <span className="font-bold">{cb.path_b.join(' ')}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div>
+              <h5 className="font-bold uppercase tracking-wider text-black border-b border-black pb-1 mb-2 text-[10px]">
+                Commuting Cubes ({commutingCubes.length})
+              </h5>
+              {commutingCubes.length === 0 ? (
+                <p className="text-neutral-400 text-[10px] uppercase">No commuting cubes recorded.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {commutingCubes.map((cb, idx) => (
+                    <div key={idx} className="p-2 bg-white border border-black text-[10px] tracking-wider">
+                      <span className="font-bold">{cb.path_a.join(' ')}</span>
+                      <span className="mx-1 text-neutral-400">~</span>
+                      <span className="font-bold">{cb.path_b.join(' ')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Eye, Copy, Download, Code, Check, BookOpen, ShieldAlert, Image as ImageIcon } from 'lucide-react';
+import { Search, Filter, RefreshCw, Eye, ShieldAlert } from 'lucide-react';
 import { KGraph, SearchFilters } from '../types';
 import { MathView } from './MathView';
 import { HomologyEditor } from './HomologyEditor';
@@ -86,7 +86,6 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
 
   const [graphs, setGraphs] = useState<KGraph[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchGraphs = async () => {
     setIsLoading(true);
@@ -182,22 +181,6 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
   useEffect(() => {
     fetchGraphs();
   }, [kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
-
-  const handleCopyJson = (graph: KGraph) => {
-    navigator.clipboard.writeText(JSON.stringify(graph, null, 2));
-    setCopiedId(graph.id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleDownloadJson = (graph: KGraph) => {
-    const blob = new Blob([JSON.stringify(graph, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${graph.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 font-sans">
@@ -359,6 +342,7 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
         <div className="space-y-6">
           {graphs.map(g => {
             const homologyEntries = Object.entries(g.properties?.homology || {});
+            const totalEdges = Object.values(g.edges || {}).reduce((acc: number, curr: unknown) => acc + (Array.isArray(curr) ? curr.length : 0), 0);
             return (
               <div
                 key={g.id}
@@ -393,31 +377,13 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                       <Eye className="w-3.5 h-3.5" />
                       View Graph
                     </button>
-                    <button
-                      onClick={() => handleCopyJson(g)}
-                      title="Copy JSON"
-                      className="text-xs border border-black px-2.5 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer rounded-none"
-                    >
-                      {copiedId === g.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      onClick={() => handleDownloadJson(g)}
-                      title="Download JSON file"
-                      className="text-xs border border-black px-2.5 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer rounded-none"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 </div>
 
-                {/* Structural Property & Custom Tags */}
-                {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal || (g.properties?.tags && g.properties.tags.length > 0)) && (
+                {/* Custom Tags */}
+                {g.properties?.tags && g.properties.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 font-mono text-[10px] pt-1">
-                    {g.properties?.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Source Free</span>}
-                    {g.properties?.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Sink Free</span>}
-                    {g.properties?.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Aperiodic</span>}
-                    {g.properties?.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold uppercase tracking-wider">Cofinal</span>}
-                    {g.properties?.tags && g.properties.tags.map((t, i) => (
+                    {g.properties.tags.map((t, i) => (
                       <span key={i} className="bg-neutral-200 border border-neutral-400 text-neutral-900 px-2 py-0.5 font-bold uppercase tracking-wider">
                         {t}
                       </span>
@@ -425,30 +391,27 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                   </div>
                 )}
 
-                {/* Paper Citation Block */}
-                {g.properties?.paper && (
-                  <div className="bg-amber-50 border border-amber-300 p-3 text-xs font-mono text-amber-900 flex items-start gap-2.5">
-                    <BookOpen className="w-4 h-4 text-amber-800 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-bold uppercase tracking-wider block text-[10px] text-amber-950">Associated Paper / Citation:</span>
-                      <span className="font-sans text-xs text-black font-medium">{g.properties.paper}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Attached Diagram / Image Preview Banner */}
-                {g.properties?.image_url && (
-                  <div className="border border-black bg-[#fafafa] p-3 flex items-center justify-between gap-3 font-mono text-xs">
-                    <div className="flex items-center gap-2 text-neutral-800 font-bold text-[11px] uppercase tracking-wider">
-                      <ImageIcon className="w-4 h-4 text-black shrink-0" />
-                      Attached Diagram / Illustration Available
-                    </div>
-                    <button
-                      onClick={() => onSelectGraph(g.id)}
-                      className="text-[10px] font-bold uppercase underline text-black hover:text-neutral-600 cursor-pointer"
-                    >
-                      View Diagram &rarr;
-                    </button>
+                {/* Contributor & Citation Block */}
+                {(g.properties?.submitter_name || g.properties?.contact_email || g.properties?.paper) && (
+                  <div className="bg-[#fafafa] border border-black p-3.5 text-xs font-mono space-y-2 text-neutral-900">
+                    {g.properties?.submitter_name && (
+                      <div className="flex flex-wrap items-start gap-x-2">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Contributor Name:</span>
+                        <span className="font-sans text-xs text-black font-bold">{g.properties.submitter_name}</span>
+                      </div>
+                    )}
+                    {g.properties?.contact_email && (
+                      <div className="flex flex-wrap items-start gap-x-2">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Contact Email:</span>
+                        <span className="font-sans text-xs text-neutral-800 font-medium">{g.properties.contact_email}</span>
+                      </div>
+                    )}
+                    {g.properties?.paper && (
+                      <div className="flex flex-wrap items-start gap-x-2">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Associated Paper / Citation:</span>
+                        <span className="font-sans text-xs text-black font-medium">{g.properties.paper}</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -477,24 +440,35 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                 )}
 
                 {/* Structure stats & Homology preview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
-                  {/* Left: Counts */}
-                  <div className="bg-[#fafafa] p-4 border border-black space-y-1.5 text-neutral-700">
-                    <div>Vertices ({g.vertices.length}): <span className="text-black font-bold">{g.vertices.join(', ')}</span></div>
-                    <div>Commuting Squares: <span className="text-black font-bold">{g.commuting_squares.length}</span></div>
-                    <div>Commuting Cubes: <span className="text-black font-bold">{g.commuting_cubes.length}</span></div>
-                    {g.properties?.submitter_name && <div>Contributor: <span className="text-black font-bold">{g.properties.submitter_name}</span></div>}
-                    {g.properties?.contact_email && <div>Contact Email: <span className="text-neutral-600">{g.properties.contact_email}</span></div>}
+                <div className={`grid grid-cols-1 ${homologyEntries.length > 0 ? 'md:grid-cols-2' : ''} gap-4 text-xs font-mono`}>
+                  {/* Left: Counts & Structural Properties */}
+                  <div className="bg-[#fafafa] p-4 border border-black space-y-2 text-neutral-700">
+                    <div className="space-y-1">
+                      <div>k Value: <span className="text-black font-bold">{g.k}</span></div>
+                      <div>Number of Vertices: <span className="text-black font-bold">{g.vertices.length}</span></div>
+                      <div>Number of Edges: <span className="text-black font-bold">{totalEdges}</span></div>
+                    </div>
+                    {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal) && (
+                      <div className="pt-2 border-t border-neutral-200">
+                        <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1.5">
+                          Structural Properties
+                        </span>
+                        <div className="flex flex-wrap gap-1.5 text-black font-bold uppercase text-[10px]">
+                          {g.properties?.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Source Free</span>}
+                          {g.properties?.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Sink Free</span>}
+                          {g.properties?.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Aperiodic</span>}
+                          {g.properties?.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Cofinal</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Right: Homology LaTeX */}
-                  <div className="bg-[#fafafa] p-4 border border-black space-y-2">
-                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
-                      Homology Group Invariants
-                    </span>
-                    {homologyEntries.length === 0 ? (
-                      <span className="text-neutral-400 italic">No homology calculated yet.</span>
-                    ) : (
+                  {/* Right: Homology LaTeX (Only if nonempty) */}
+                  {homologyEntries.length > 0 && (
+                    <div className="bg-[#fafafa] p-4 border border-black space-y-2">
+                      <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
+                        Homology Group Invariants
+                      </span>
                       <div className="flex flex-wrap gap-2 items-center">
                         {homologyEntries.map(([deg, latex]) => (
                           <div key={deg} className="bg-white border border-black px-3 py-1 font-serif text-sm">
@@ -502,21 +476,32 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Interactive Graph Visualizer in Search Summary */}
+                {/* Interactive Graph Visualizer or Submitted Image in Search Summary */}
                 <div className="pt-2">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-black mb-1 font-mono">
-                    Graph Structure Visualizer
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-black mb-1.5 font-mono">
+                    {g.properties?.image_url ? 'Submitted Graph Diagram' : 'Graph Structure Visualizer'}
                   </div>
-                  <KGraphVisualizer
-                    vertices={g.vertices}
-                    edges={g.edges}
-                    commutingSquares={g.commuting_squares}
-                    commutingCubes={g.commuting_cubes}
-                  />
+                  {g.properties?.image_url ? (
+                    <div className="border border-black bg-[#fafafa] p-4 flex items-center justify-center min-h-[200px]">
+                      <img
+                        src={g.properties.image_url}
+                        alt={`Diagram for ${g.properties?.name || `Graph ${g.id}`}`}
+                        className="max-h-[380px] w-auto object-contain border border-black bg-white"
+                      />
+                    </div>
+                  ) : (
+                    <KGraphVisualizer
+                      vertices={g.vertices}
+                      edges={g.edges}
+                      commutingSquares={g.commuting_squares}
+                      commutingCubes={g.commuting_cubes}
+                      hideCommuting={true}
+                    />
+                  )}
                 </div>
               </div>
             );
