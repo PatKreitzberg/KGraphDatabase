@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Eye, Copy, Download, Code, Check, BookOpen, ShieldAlert } from 'lucide-react';
+import { Search, Filter, RefreshCw, Eye, Copy, Download, Code, Check, BookOpen, ShieldAlert, Image as ImageIcon } from 'lucide-react';
 import { KGraph, SearchFilters } from '../types';
 import { MathView } from './MathView';
 import { HomologyEditor } from './HomologyEditor';
@@ -346,6 +346,22 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                       <span className="font-bold uppercase tracking-wider block text-[10px] text-amber-950">Associated Paper / Citation:</span>
                       <span className="font-sans text-xs text-black font-medium">{g.properties.paper}</span>
                     </div>
+                  </div>
+                )}
+
+                {/* Attached Diagram / Image Preview Banner */}
+                {g.properties?.image_url && (
+                  <div className="border border-black bg-[#fafafa] p-3 flex items-center justify-between gap-3 font-mono text-xs">
+                    <div className="flex items-center gap-2 text-neutral-800 font-bold text-[11px] uppercase tracking-wider">
+                      <ImageIcon className="w-4 h-4 text-black shrink-0" />
+                      Attached Diagram / Illustration Available
+                    </div>
+                    <button
+                      onClick={() => onSelectGraph(g.id)}
+                      className="text-[10px] font-bold uppercase underline text-black hover:text-neutral-600 cursor-pointer"
+                    >
+                      View Diagram &rarr;
+                    </button>
                   </div>
                 )}
 

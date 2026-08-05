@@ -363,6 +363,20 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           <div>Commuting Squares: <strong className="text-black font-bold">{graph.commuting_squares.length}</strong></div>
           <div>Commuting Cubes: <strong className="text-black font-bold">{graph.commuting_cubes.length}</strong></div>
         </div>
+
+        {/* Attached Diagram / Illustration Image */}
+        {graph.properties?.image_url && (
+          <div className="border border-black bg-[#fafafa] p-4 mt-4">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 font-mono">Attached Diagram / Illustration</h4>
+            <div className="bg-white border border-black p-4 max-w-2xl mx-auto flex justify-center">
+              <img
+                src={graph.properties.image_url}
+                alt={graph.properties.name || 'Graph diagram'}
+                className="max-h-96 w-auto object-contain"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Interactive k-Graph Canvas */}

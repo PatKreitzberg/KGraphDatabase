@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, FileText, Upload, CheckCircle, Copy, Link, Mail, ArrowLeft, Send } from 'lucide-react';
+import { Layers, FileText, Upload, CheckCircle, Copy, Link, Mail, ArrowLeft, Send, Image as ImageIcon, X } from 'lucide-react';
 import { MatrixBuilder } from './MatrixBuilder';
 import { TextBlockEditor } from './TextBlockEditor';
 import { HomologyEditor } from './HomologyEditor';
@@ -31,8 +31,26 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
     H1: '\\mathbb{Z}'
   });
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImage(file);
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+  };
 
   // Result state
   const [createdResult, setCreatedResult] = useState<{
@@ -91,22 +109,46 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
 
     setIsSubmitting(true);
     setErrorMessage('');
-
-    const payload = {
-      k: draftData.k,
-      vertices: draftData.vertices,
-      edges: draftData.edges,
-      commuting_squares: draftData.commuting_squares,
-      commuting_cubes: draftData.commuting_cubes,
-      owner_email: ownerEmail.trim(),
-      properties: {
-        name: graphName.trim() || undefined,
-        paper: paperCitation.trim() || undefined,
-        homology: homologyMap
-      }
-    };
+    setUploadStatus('');
 
     try {
+      let uploadedImageUrl: string | undefined = undefined;
+      if (selectedImage) {
+        setUploadStatus('Uploading diagram image to storage...');
+        const fileExt = selectedImage.name.split('.').pop() || 'png';
+        const fileName = `graph-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('graph-images')
+          .upload(fileName, selectedImage);
+
+        if (uploadError) {
+          throw new Error(`Image upload failed: ${uploadError.message}. Please ensure a public bucket named "graph-images" exists in Supabase Storage.`);
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('graph-images')
+          .getPublicUrl(fileName);
+
+        uploadedImageUrl = publicUrlData.publicUrl;
+        setUploadStatus('Saving graph record to database...');
+      }
+
+      const payload = {
+        k: draftData.k,
+        vertices: draftData.vertices,
+        edges: draftData.edges,
+        commuting_squares: draftData.commuting_squares,
+        commuting_cubes: draftData.commuting_cubes,
+        owner_email: ownerEmail.trim(),
+        properties: {
+          name: graphName.trim() || undefined,
+          paper: paperCitation.trim() || undefined,
+          image_url: uploadedImageUrl,
+          homology: homologyMap
+        }
+      };
+
       const { data, error } = await supabase.rpc('create_graph', {
         owner_email: payload.owner_email,
         k: payload.k,
@@ -135,6 +177,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
       setErrorMessage(err.message || 'An error occurred while saving the graph.');
     } finally {
       setIsSubmitting(false);
+      setUploadStatus('');
     }
   };
 
@@ -259,6 +302,44 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             </div>
           </div>
 
+          {/* Graph Diagram / Illustration Upload (Optional) */}
+          <div className="border-t border-black pt-4">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2 flex items-center gap-1.5">
+              <ImageIcon className="w-4 h-4 text-black" />
+              Graph Diagram / Illustration Image (Optional)
+            </label>
+            {!imagePreview ? (
+              <label className="border border-dashed border-black bg-[#fafafa] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 transition-colors">
+                <Upload className="w-6 h-6 text-neutral-600" />
+                <span className="text-xs font-bold uppercase tracking-wider text-black">Click to select an image (.PNG, .JPG, .SVG)</span>
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500">Image will be hosted securely on Supabase Storage</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              </label>
+            ) : (
+              <div className="border border-black bg-[#fafafa] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <img src={imagePreview} alt="Graph preview" className="w-20 h-20 object-contain border border-neutral-300 bg-white" />
+                  <div>
+                    <div className="text-xs font-mono font-bold text-black">{selectedImage?.name}</div>
+                    <div className="text-[10px] font-mono text-neutral-500">{selectedImage ? Math.round(selectedImage.size / 1024) + ' KB' : ''}</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 hover:bg-red-700 transition-colors flex items-center gap-1 cursor-pointer rounded-none"
+                >
+                  <X className="w-3.5 h-3.5" /> Remove Image
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Required Submitter Email */}
           <div className="border-t border-black pt-4">
             <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
@@ -291,7 +372,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
               className="w-full bg-black text-white text-xs font-bold uppercase tracking-widest py-4 px-4 hover:bg-neutral-800 transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-none"
             >
               <Send className="w-4 h-4" />
-              {isSubmitting ? 'Saving Graph Record...' : 'Validate & Save'}
+              {isSubmitting ? (uploadStatus || 'Saving Graph Record...') : 'Validate & Save'}
             </button>
           </div>
         </form>
@@ -350,6 +431,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                 setStep('input');
                 setDraftData(null);
                 setCreatedResult(null);
+                handleRemoveImage();
               }}
               className="border border-black px-4 py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors rounded-none"
             >
