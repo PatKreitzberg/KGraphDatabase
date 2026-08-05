@@ -3,29 +3,43 @@ import { PlusCircle, Search, Server, Layers, FileCode, ExternalLink, HelpCircle 
 import { AddGraphView } from './components/AddGraphView';
 import { SearchGraphView } from './components/SearchGraphView';
 import { GraphDetailView } from './components/GraphDetailView';
+import { EditGraphView } from './components/EditGraphView';
+import { EditTokenVerifyView } from './components/EditTokenVerifyView';
 import { PhpExportModal } from './components/PhpExportModal';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'add' | 'search' | 'detail'>('search');
+  const [activeTab, setActiveTab] = useState<'add' | 'search' | 'detail' | 'verify_token' | 'edit_form'>('search');
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [activeEditToken, setActiveEditToken] = useState<string | undefined>(undefined);
+  const [editOrigin, setEditOrigin] = useState<'search' | 'detail'>('search');
   const [isPhpModalOpen, setIsPhpModalOpen] = useState<boolean>(false);
 
   // Hash-based routing to support emailed token links e.g. #edit/graph-123?token=tok_xyz
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#/, '');
-      if (hash.startsWith('edit/') || hash.startsWith('detail/')) {
+      if (hash.startsWith('edit/')) {
         const parts = hash.split('?');
-        const pathPart = parts[0];
-        const queryPart = parts[1] || '';
-
-        const id = pathPart.replace(/^(edit|detail)\//, '');
-        const params = new URLSearchParams(queryPart);
+        const id = parts[0].replace(/^edit\//, '');
+        const params = new URLSearchParams(parts[1] || '');
         const token = params.get('token') || undefined;
 
         setSelectedGraphId(id);
-        setActiveEditToken(token);
+        if (token) {
+          setActiveEditToken(token);
+          setActiveTab('edit_form');
+        } else {
+          setActiveEditToken(undefined);
+          setActiveTab('verify_token');
+        }
+      } else if (hash.startsWith('detail/')) {
+        const parts = hash.split('?');
+        const id = parts[0].replace(/^detail\//, '');
+        const params = new URLSearchParams(parts[1] || '');
+        const token = params.get('token') || undefined;
+
+        setSelectedGraphId(id);
+        if (token) setActiveEditToken(token);
         setActiveTab('detail');
       } else if (hash === 'add') {
         setActiveTab('add');
@@ -43,14 +57,37 @@ export default function App() {
     setSelectedGraphId(graphId);
     setActiveEditToken(token);
     setActiveTab('detail');
-    window.location.hash = `edit/${graphId}?token=${token}`;
+    window.location.hash = `detail/${graphId}?token=${token}`;
   };
 
   const handleSelectGraph = (graphId: string) => {
     setSelectedGraphId(graphId);
-    setActiveEditToken(undefined);
     setActiveTab('detail');
     window.location.hash = `detail/${graphId}`;
+  };
+
+  const handleStartEdit = (graphId: string, origin: 'search' | 'detail') => {
+    setEditOrigin(origin);
+    const tokenToUse = (selectedGraphId === graphId && activeEditToken) ? activeEditToken : undefined;
+    setSelectedGraphId(graphId);
+    if (tokenToUse) {
+      setActiveTab('edit_form');
+      window.location.hash = `edit/${graphId}?token=${tokenToUse}`;
+    } else {
+      setActiveEditToken(undefined);
+      setActiveTab('verify_token');
+      window.location.hash = `edit/${graphId}`;
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (editOrigin === 'detail' && selectedGraphId) {
+      setActiveTab('detail');
+      window.location.hash = `detail/${selectedGraphId}`;
+    } else {
+      setActiveTab('search');
+      window.location.hash = 'search';
+    }
   };
 
   return (
@@ -62,7 +99,10 @@ export default function App() {
           <div className="flex flex-col">
             <a
               href="#search"
-              onClick={() => setActiveTab('search')}
+              onClick={() => {
+                setActiveTab('search');
+                window.location.hash = 'search';
+              }}
               className="text-2xl font-bold tracking-tighter uppercase text-black flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
               <span className="bg-black text-white px-2 py-0.5 text-lg font-mono font-bold">K</span>
@@ -96,7 +136,7 @@ export default function App() {
                 window.location.hash = 'search';
               }}
               className={`px-3 py-2 border border-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'search'
+                activeTab === 'search' || activeTab === 'verify_token' || activeTab === 'edit_form'
                   ? 'bg-black text-white font-bold'
                   : 'bg-white text-black hover:bg-neutral-100'
               }`}
@@ -120,7 +160,14 @@ export default function App() {
       {/* Main Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
         {activeTab === 'add' && <AddGraphView onGraphSaved={handleGraphSaved} />}
-        {activeTab === 'search' && <SearchGraphView onSelectGraph={handleSelectGraph} />}
+        
+        <div className={activeTab === 'search' ? '' : 'hidden'}>
+          <SearchGraphView
+            onSelectGraph={handleSelectGraph}
+            onEditGraph={id => handleStartEdit(id, 'search')}
+          />
+        </div>
+
         {activeTab === 'detail' && selectedGraphId && (
           <GraphDetailView
             graphId={selectedGraphId}
@@ -129,6 +176,37 @@ export default function App() {
               setActiveTab('search');
               window.location.hash = 'search';
             }}
+            onEditGraph={id => handleStartEdit(id, 'detail')}
+          />
+        )}
+
+        {activeTab === 'verify_token' && selectedGraphId && (
+          <EditTokenVerifyView
+            graphId={selectedGraphId}
+            origin={editOrigin}
+            onSuccess={token => {
+              setActiveEditToken(token);
+              setActiveTab('edit_form');
+              window.location.hash = `edit/${selectedGraphId}?token=${token}`;
+            }}
+            onBack={handleCancelEdit}
+          />
+        )}
+
+        {activeTab === 'edit_form' && selectedGraphId && (
+          <EditGraphView
+            graphId={selectedGraphId}
+            editToken={activeEditToken || ''}
+            onViewGraph={id => {
+              setSelectedGraphId(id);
+              setActiveTab('detail');
+              window.location.hash = `detail/${id}`;
+            }}
+            onReturnToSearch={() => {
+              setActiveTab('search');
+              window.location.hash = 'search';
+            }}
+            onCancel={handleCancelEdit}
           />
         )}
       </main>

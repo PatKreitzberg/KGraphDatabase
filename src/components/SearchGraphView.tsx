@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Eye, ShieldAlert } from 'lucide-react';
+import { Search, Filter, RefreshCw, Eye, ShieldAlert, Edit } from 'lucide-react';
 import { KGraph, SearchFilters } from '../types';
 import { MathView } from './MathView';
 import { HomologyEditor } from './HomologyEditor';
@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 
 interface SearchGraphViewProps {
   onSelectGraph: (graphId: string) => void;
+  onEditGraph: (graphId: string) => void;
 }
 
 interface FilterNumericInputProps {
@@ -72,7 +73,7 @@ const FilterNumericInput: React.FC<FilterNumericInputProps> = ({ label, value, o
   );
 };
 
-export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph }) => {
+export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph, onEditGraph }) => {
   const [kFilter, setKFilter] = useState<string>('');
   const [minVertices, setMinVertices] = useState<string>('');
   const [maxVertices, setMaxVertices] = useState<string>('');
@@ -364,7 +365,14 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => onEditGraph(g.id)}
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest bg-white border border-black text-black px-4 py-2 hover:bg-neutral-100 transition-colors cursor-pointer rounded-none"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit Graph
+                    </button>
                     <button
                       onClick={() => onSelectGraph(g.id)}
                       className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest bg-black text-white px-4 py-2 hover:bg-neutral-800 transition-colors cursor-pointer rounded-none"

@@ -1,26 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
-  Lock,
-  Unlock,
-  Key,
   Plus,
   Copy,
   Download,
-  Share2,
   Check,
-  Send,
   MessageSquare,
   FileCode,
   ShieldAlert,
-  Info
+  Info,
+  Edit
 } from 'lucide-react';
-import { KGraph, CommutingPath, TextParseResult } from '../types';
+import { KGraph } from '../types';
 import { MathView } from './MathView';
 import { KGraphVisualizer } from './KGraphVisualizer';
-import { HomologyEditor } from './HomologyEditor';
-import { MatrixBuilder } from './MatrixBuilder';
-import { TextBlockEditor } from './TextBlockEditor';
 import { formatKGraphToText } from '../lib/parser';
 import { supabase } from '../lib/supabase';
 
@@ -28,43 +21,17 @@ interface GraphDetailViewProps {
   graphId: string;
   initialToken?: string;
   onBack: () => void;
+  onEditGraph: (graphId: string) => void;
 }
 
 export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
   graphId,
   initialToken,
-  onBack
+  onBack,
+  onEditGraph
 }) => {
   const [graph, setGraph] = useState<KGraph | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [editToken, setEditToken] = useState<string>(initialToken || '');
-  const [isTokenValid, setIsTokenValid] = useState<boolean>(false);
-  const [tokenInput, setTokenInput] = useState<string>('');
-  const [tokenError, setTokenError] = useState<string>('');
-
-  // Structure edit mode
-  const [isEditingStructure, setIsEditingStructure] = useState<boolean>(false);
-  const [editMethod, setEditMethod] = useState<'matrix' | 'text' | 'metadata'>('matrix');
-  const [editDraftData, setEditDraftData] = useState<{
-    k: number;
-    vertices: string[];
-    edges: Record<string, [string, string, string][]>;
-    commuting_squares: CommutingPath[];
-    commuting_cubes: CommutingPath[];
-  } | null>(null);
-  const [editName, setEditName] = useState<string>('');
-  const [editDescription, setEditDescription] = useState<string>('');
-  const [editPaper, setEditPaper] = useState<string>('');
-  const [editSubmitterName, setEditSubmitterName] = useState<string>('');
-  const [editContactEmail, setEditContactEmail] = useState<string>('');
-  const [editHomology, setEditHomology] = useState<Record<string, string>>({});
-  const [editSourceFree, setEditSourceFree] = useState<boolean>(false);
-  const [editSinkFree, setEditSinkFree] = useState<boolean>(false);
-  const [editAperiodic, setEditAperiodic] = useState<boolean>(false);
-  const [editCofinal, setEditCofinal] = useState<boolean>(false);
-  const [editCustomTags, setEditCustomTags] = useState<string[]>([]);
-  const [editNewTagInput, setEditNewTagInput] = useState<string>('');
-  const [isSavingStructure, setIsSavingStructure] = useState<boolean>(false);
 
   // Append Property Mode (Any Visitor)
   const [showAppendModal, setShowAppendModal] = useState<boolean>(false);
@@ -117,7 +84,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
   };
 
   // Copy feedback
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  // Copy feedback
   const [copiedText, setCopiedText] = useState<boolean>(false);
 
   const fetchGraph = async () => {
@@ -133,32 +100,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
       if (error) throw error;
 
       if (data) {
-        let isOwner = false;
-        if (editToken) {
-          const { data: isValid } = await supabase.rpc('verify_graph_token', {
-            target_id: graphId,
-            token: editToken
-          });
-          isOwner = !!isValid;
-        }
-
-        setGraph({
-          ...data,
-          is_owner: isOwner,
-          edit_token: isOwner ? editToken : undefined
-        } as KGraph);
-        setIsTokenValid(isOwner);
-        if (data.properties?.name) setEditName(data.properties.name);
-        if (data.properties?.description) setEditDescription(data.properties.description);
-        if (data.properties?.paper) setEditPaper(data.properties.paper);
-        if (data.properties?.submitter_name) setEditSubmitterName(data.properties.submitter_name);
-        if (data.properties?.contact_email) setEditContactEmail(data.properties.contact_email);
-        if (data.properties?.homology) setEditHomology(data.properties.homology);
-        if (data.properties?.source_free !== undefined) setEditSourceFree(!!data.properties.source_free);
-        if (data.properties?.sink_free !== undefined) setEditSinkFree(!!data.properties.sink_free);
-        if (data.properties?.aperiodic !== undefined) setEditAperiodic(!!data.properties.aperiodic);
-        if (data.properties?.cofinal !== undefined) setEditCofinal(!!data.properties.cofinal);
-        if (data.properties?.tags) setEditCustomTags(data.properties.tags);
+        setGraph(data as KGraph);
       }
     } catch (err) {
       console.error('Failed to fetch graph detail:', err);
@@ -169,78 +111,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
 
   useEffect(() => {
     fetchGraph();
-  }, [graphId, editToken]);
-
-  const handleVerifyToken = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTokenError('');
-    try {
-      const { data: valid, error } = await supabase.rpc('verify_graph_token', {
-        target_id: graphId,
-        token: tokenInput.trim()
-      });
-      if (error) throw error;
-      if (valid) {
-        setEditToken(tokenInput.trim());
-        setIsTokenValid(true);
-        setTokenInput('');
-      } else {
-        setTokenError('Invalid token for this graph.');
-      }
-    } catch (err) {
-      setTokenError('Verification failed.');
-    }
-  };
-
-  const handleSaveStructure = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!graph || !editToken) return;
-
-    setIsSavingStructure(true);
-    try {
-      const updatedK = editDraftData?.k ?? graph.k;
-      const updatedVertices = editDraftData?.vertices ?? graph.vertices;
-      const updatedEdges = editDraftData?.edges ?? graph.edges;
-      const updatedSquares = editDraftData?.commuting_squares ?? graph.commuting_squares;
-      const updatedCubes = editDraftData?.commuting_cubes ?? graph.commuting_cubes;
-      const updatedProperties = {
-        ...graph.properties,
-        name: editName.trim() || undefined,
-        description: editDescription.trim() || undefined,
-        paper: editPaper.trim() || undefined,
-        submitter_name: editSubmitterName.trim() || undefined,
-        contact_email: editContactEmail.trim() || undefined,
-        homology: editHomology,
-        source_free: editSourceFree,
-        sink_free: editSinkFree,
-        aperiodic: editAperiodic,
-        cofinal: editCofinal,
-        tags: editCustomTags.length > 0 ? editCustomTags : undefined
-      };
-
-      const { data, error } = await supabase.rpc('update_graph', {
-        target_id: graphId,
-        token: editToken,
-        updated_k: updatedK,
-        updated_vertices: updatedVertices,
-        updated_edges: updatedEdges,
-        updated_squares: updatedSquares,
-        updated_cubes: updatedCubes,
-        updated_properties: updatedProperties
-      });
-
-      if (error) throw error;
-
-      if (data && data.success) {
-        await fetchGraph();
-        setIsEditingStructure(false);
-      }
-    } catch (err) {
-      console.error('Failed to save structure:', err);
-    } finally {
-      setIsSavingStructure(false);
-    }
-  };
+  }, [graphId]);
 
   // Any visitor append property
   const handleAppendProperty = async (e: React.FormEvent) => {
@@ -272,14 +143,6 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
       setIsSubmittingProperty(false);
     }
   };
-
-  const handleCopyEditLink = () => {
-    const url = `${window.location.origin}/#edit/${graphId}?token=${editToken}`;
-    navigator.clipboard.writeText(url);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   const handleCopyTextFormat = () => {
     if (!graph) return;
     const txt = formatKGraphToText(graph);
@@ -330,15 +193,13 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         </button>
 
         <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-          {isTokenValid ? (
-            <span className="flex items-center gap-1.5 bg-black text-white px-3 py-1.5 font-bold uppercase tracking-wider text-[10px]">
-              <Unlock className="w-3.5 h-3.5 text-emerald-400" /> Structure Token Validated
-            </span>
-          ) : (
-            <span className="flex items-center gap-1.5 bg-neutral-100 text-neutral-600 border border-black px-3 py-1.5 font-bold uppercase tracking-wider text-[10px]">
-              <Lock className="w-3.5 h-3.5 text-neutral-400" /> Read-Only Mode
-            </span>
-          )}
+          <button
+            onClick={() => onEditGraph(graphId)}
+            className="bg-white border border-black text-black px-4 py-1.5 font-bold uppercase tracking-widest text-[10px] flex items-center gap-1.5 hover:bg-neutral-100 transition-colors cursor-pointer rounded-none"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Edit Graph
+          </button>
 
           <button
             onClick={handleCopyTextFormat}
@@ -645,337 +506,6 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           </div>
         </div>
       )}
-      <div className="border border-black bg-[#fafafa] p-6 space-y-4 font-sans shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-        <div className="flex flex-wrap items-center justify-between border-b border-black pb-3 gap-2">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-black" />
-            <div>
-              <h3 className="font-bold uppercase tracking-widest text-black text-xs">Core Graph Structure Editing</h3>
-              <p className="text-[10px] text-neutral-600 uppercase tracking-wider mt-0.5">
-                Core structure changes are strictly restricted to the holder of the edit token.
-              </p>
-            </div>
-          </div>
-
-          {isTokenValid && !isEditingStructure && (
-            <button
-              onClick={() => setIsEditingStructure(true)}
-              className="bg-black text-white font-bold uppercase tracking-widest text-xs px-4 py-2 hover:bg-neutral-800 transition-colors cursor-pointer rounded-none"
-            >
-              Edit Structure
-            </button>
-          )}
-        </div>
-
-        {!isTokenValid ? (
-          <form onSubmit={handleVerifyToken} className="space-y-3 bg-white border border-black p-4">
-            <label className="block text-xs font-bold uppercase tracking-wider text-black">
-              Enter Edit Token to Unlock Structural Permissions:
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={tokenInput}
-                onChange={e => setTokenInput(e.target.value)}
-                placeholder="tok_..."
-                className="flex-1 border border-black p-2.5 text-xs focus:border-black focus:outline-none font-mono rounded-none transition-colors"
-              />
-              <button
-                type="submit"
-                className="bg-black text-white px-4 py-2 hover:bg-neutral-800 transition-colors font-bold uppercase text-xs tracking-widest cursor-pointer rounded-none"
-              >
-                Validate Token
-              </button>
-            </div>
-            {tokenError && <p className="text-red-600 font-bold text-xs uppercase">{tokenError}</p>}
-          </form>
-        ) : isEditingStructure ? (
-          <form onSubmit={handleSaveStructure} className="space-y-6 bg-white border border-black p-6">
-            <div className="flex border border-black bg-neutral-100 font-bold text-xs uppercase tracking-wider">
-              <button
-                type="button"
-                onClick={() => setEditMethod('matrix')}
-                className={`flex-1 p-3 text-center border-r border-black cursor-pointer transition-colors ${
-                  editMethod === 'matrix' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-100'
-                }`}
-              >
-                1. Re-edit Adjacency Matrices
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMethod('text')}
-                className={`flex-1 p-3 text-center border-r border-black cursor-pointer transition-colors ${
-                  editMethod === 'text' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-100'
-                }`}
-              >
-                2. Re-edit Text Block
-              </button>
-              <button
-                type="button"
-                onClick={() => setEditMethod('metadata')}
-                className={`flex-1 p-3 text-center cursor-pointer transition-colors ${
-                  editMethod === 'metadata' ? 'bg-black text-white' : 'bg-white text-black hover:bg-neutral-100'
-                }`}
-              >
-                3. Metadata &amp; Homology
-              </button>
-            </div>
-
-            {editMethod === 'matrix' && (
-              <div className="space-y-4">
-                <p className="text-xs text-neutral-600 uppercase tracking-wider font-mono">
-                  Modify adjacency matrices or vertices count below. Changes update the graph structure on save.
-                </p>
-                <MatrixBuilder
-                  initialK={graph.k}
-                  initialVertices={graph.vertices}
-                  initialEdges={graph.edges}
-                  initialSquares={graph.commuting_squares}
-                  initialCubes={graph.commuting_cubes}
-                  onMatrixSubmit={data => {
-                    setEditDraftData({
-                      k: data.k,
-                      vertices: data.vertices,
-                      edges: data.edges,
-                      commuting_squares: data.commuting_squares,
-                      commuting_cubes: data.commuting_cubes
-                    });
-                    setEditMethod('metadata');
-                  }}
-                />
-              </div>
-            )}
-
-            {editMethod === 'text' && (
-              <div className="space-y-4">
-                <p className="text-xs text-neutral-600 uppercase tracking-wider font-mono">
-                  Modify text block syntax or upload a new block file.
-                </p>
-                <TextBlockEditor
-                  onParsedSubmit={(res: TextParseResult) => {
-                    if (res.graph) {
-                      setEditDraftData({
-                        k: res.graph.k,
-                        vertices: res.graph.vertices,
-                        edges: res.graph.edges,
-                        commuting_squares: res.graph.commuting_squares,
-                        commuting_cubes: res.graph.commuting_cubes
-                      });
-                      if (res.graph.properties?.name) setEditName(res.graph.properties.name);
-                      if (res.graph.properties?.description) setEditDescription(res.graph.properties.description);
-                      if (res.graph.properties?.paper) setEditPaper(res.graph.properties.paper);
-                      if (res.graph.properties?.homology) setEditHomology(res.graph.properties.homology);
-                      setEditMethod('metadata');
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-            {editMethod === 'metadata' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
-                    Edit Graph Name
-                  </label>
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
-                    Edit Graph Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={editDescription}
-                    onChange={e => setEditDescription(e.target.value)}
-                    className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
-                    Edit Paper Citation
-                  </label>
-                  <input
-                    type="text"
-                    value={editPaper}
-                    onChange={e => setEditPaper(e.target.value)}
-                    className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
-                      Edit Contributor Name
-                    </label>
-                    <input
-                      type="text"
-                      value={editSubmitterName}
-                      onChange={e => setEditSubmitterName(e.target.value)}
-                      className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
-                      Edit Public Contact Email
-                    </label>
-                    <input
-                      type="email"
-                      value={editContactEmail}
-                      onChange={e => setEditContactEmail(e.target.value)}
-                      placeholder={graph?.owner_email || 'researcher@university.edu'}
-                      className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
-                    />
-                  </div>
-                </div>
-
-                {/* Edit Structural Properties */}
-                <div className="border border-black bg-[#fafafa] p-4 space-y-3">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-black">
-                    Structural Properties
-                  </span>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
-                      <input
-                        type="checkbox"
-                        checked={editSourceFree}
-                        onChange={e => setEditSourceFree(e.target.checked)}
-                        className="w-4 h-4 accent-black"
-                      />
-                      Source Free
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
-                      <input
-                        type="checkbox"
-                        checked={editSinkFree}
-                        onChange={e => setEditSinkFree(e.target.checked)}
-                        className="w-4 h-4 accent-black"
-                      />
-                      Sink Free
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
-                      <input
-                        type="checkbox"
-                        checked={editAperiodic}
-                        onChange={e => setEditAperiodic(e.target.checked)}
-                        className="w-4 h-4 accent-black"
-                      />
-                      Aperiodic
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer font-bold uppercase text-black bg-white p-2.5 border border-black">
-                      <input
-                        type="checkbox"
-                        checked={editCofinal}
-                        onChange={e => setEditCofinal(e.target.checked)}
-                        className="w-4 h-4 accent-black"
-                      />
-                      Cofinal
-                    </label>
-                  </div>
-                </div>
-
-                {/* Edit Custom Tags */}
-                <div className="border border-black bg-[#fafafa] p-4 space-y-3">
-                  <span className="block text-xs font-bold uppercase tracking-wider text-black">
-                    Edit Custom Tags &amp; Classifications
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editNewTagInput}
-                      onChange={e => setEditNewTagInput(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (editNewTagInput.trim() && !editCustomTags.includes(editNewTagInput.trim())) {
-                            setEditCustomTags([...editCustomTags, editNewTagInput.trim()]);
-                            setEditNewTagInput('');
-                          }
-                        }
-                      }}
-                      placeholder="e.g. Row-Finite"
-                      className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (editNewTagInput.trim() && !editCustomTags.includes(editNewTagInput.trim())) {
-                          setEditCustomTags([...editCustomTags, editNewTagInput.trim()]);
-                          setEditNewTagInput('');
-                        }
-                      }}
-                      className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
-                    >
-                      Add Tag
-                    </button>
-                  </div>
-                  {editCustomTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {editCustomTags.map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className="bg-neutral-200 border border-neutral-400 text-neutral-900 font-mono text-xs font-bold uppercase px-2.5 py-1 flex items-center gap-1.5"
-                        >
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => setEditCustomTags(editCustomTags.filter((_, i) => i !== idx))}
-                            className="text-neutral-500 hover:text-red-700 font-bold cursor-pointer"
-                            title="Remove Tag"
-                          >
-                            &times;
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <HomologyEditor
-                  initialHomology={editHomology}
-                  onChange={setEditHomology}
-                  title="Edit Homology Group Invariants"
-                />
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-2 border-t border-black">
-              <button
-                type="submit"
-                disabled={isSavingStructure}
-                className="bg-black text-white px-6 py-3 font-bold text-xs uppercase tracking-widest hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
-              >
-                {isSavingStructure ? 'Saving Structure...' : 'Save Structure Changes'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsEditingStructure(false)}
-                className="border border-black px-6 py-3 font-bold text-xs uppercase tracking-widest hover:bg-black hover:text-white transition-colors rounded-none cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between text-xs text-black bg-white p-4 border border-black gap-2">
-            <span className="font-mono text-xs uppercase font-bold">You possess valid token permissions for this graph record.</span>
-            <button
-              onClick={handleCopyEditLink}
-              className="text-black font-bold uppercase tracking-widest underline flex items-center gap-1 cursor-pointer"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              {copiedLink ? 'Copied Token Link!' : 'Copy Shareable Edit Link'}
-            </button>
-          </div>
-        )}
-      </div>
 
       {/* Modal for Append-Only Property (Any Visitor) */}
       {showAppendModal && (
