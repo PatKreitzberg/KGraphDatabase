@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Search, Server, Layers, FileCode, ExternalLink, HelpCircle } from 'lucide-react';
+import { PlusCircle, Search, Layers, FileCode, ExternalLink, HelpCircle } from 'lucide-react';
 import { AddGraphView } from './components/AddGraphView';
 import { SearchGraphView } from './components/SearchGraphView';
 import { GraphDetailView } from './components/GraphDetailView';
 import { EditGraphView } from './components/EditGraphView';
 import { EditTokenVerifyView } from './components/EditTokenVerifyView';
-import { PhpExportModal } from './components/PhpExportModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'add' | 'search' | 'detail' | 'verify_token' | 'edit_form'>('search');
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [activeEditToken, setActiveEditToken] = useState<string | undefined>(undefined);
   const [editOrigin, setEditOrigin] = useState<'search' | 'detail'>('search');
-  const [isPhpModalOpen, setIsPhpModalOpen] = useState<boolean>(false);
   const [isAddGraphDirty, setIsAddGraphDirty] = useState<boolean>(false);
 
   const activeTabRef = useRef(activeTab);
@@ -183,15 +181,6 @@ export default function App() {
               <Search className="w-3.5 h-3.5" />
               Search Registry
             </button>
-
-            <button
-              onClick={() => setIsPhpModalOpen(true)}
-              className="px-3 py-2 border border-black bg-neutral-100 hover:bg-black hover:text-white transition-all text-black flex items-center gap-1.5 cursor-pointer"
-              title="View Namecheap cPanel PHP export bundle"
-            >
-              <Server className="w-3.5 h-3.5" />
-              cPanel PHP Bundle
-            </button>
           </nav>
         </div>
       </header>
@@ -256,12 +245,6 @@ export default function App() {
         <span>Created by Patrick Kreitzberg</span>
         <span></span>
       </footer>
-
-      {/* PHP Export Modal */}
-      <PhpExportModal
-        isOpen={isPhpModalOpen}
-        onClose={() => setIsPhpModalOpen(false)}
-      />
     </div>
   );
 }
