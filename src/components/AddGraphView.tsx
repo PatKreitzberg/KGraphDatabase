@@ -276,198 +276,13 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             </button>
           </div>
 
-          {/* Graph Data Summary Badge */}
-          <div className="bg-[#fafafa] border border-black p-4 font-mono text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
-            <div>Colors (k): <span className="font-bold text-black">{draftData.k}</span></div>
-            <div>Vertices: <span className="font-bold text-black">{draftData.vertices.length}</span></div>
-            <div>Commuting Squares: <span className="font-bold text-black">{draftData.commuting_squares.length}</span></div>
-            <div>Commuting Cubes: <span className="font-bold text-black">{draftData.commuting_cubes.length}</span></div>
-          </div>
-
-          {/* Homology Signature Editor */}
-          <HomologyEditor
-            initialHomology={homologyMap}
-            onChange={setHomologyMap}
-            title="Groupoid Homology"
-          />
-
-          {/* Meta Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                Graph Name (Optional)
-              </label>
-              <input
-                type="text"
-                value={graphName}
-                onChange={e => setGraphName(e.target.value)}
-                placeholder="e.g. Higher Rank C*-Algebra Generator"
-                className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-              />
+          {/* SECTION 1: GRAPH INFORMATION */}
+          <div className="space-y-4">
+            <div className="border-b border-black pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Graph Information</h4>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification and academic reference details</p>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                Paper Citation (Optional)
-              </label>
-              <input
-                type="text"
-                value={paperCitation}
-                onChange={e => setPaperCitation(e.target.value)}
-                placeholder="e.g. ArXiv:2026.12345, J. Topology 2025"
-                className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Structural Algebraic Properties Checkboxes */}
-          <div className="border border-black bg-[#fafafa] p-4 space-y-3">
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
-              Structural Properties (Check all that apply)
-            </span>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={sourceFree}
-                  onChange={e => setSourceFree(e.target.checked)}
-                  className="w-4 h-4 accent-black"
-                />
-                Source Free
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={sinkFree}
-                  onChange={e => setSinkFree(e.target.checked)}
-                  className="w-4 h-4 accent-black"
-                />
-                Sink Free
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={aperiodic}
-                  onChange={e => setAperiodic(e.target.checked)}
-                  className="w-4 h-4 accent-black"
-                />
-                Aperiodic
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={cofinal}
-                  onChange={e => setCofinal(e.target.checked)}
-                  className="w-4 h-4 accent-black"
-                />
-                Cofinal
-              </label>
-            </div>
-          </div>
-
-          {/* Custom Tags / Classifications */}
-          <div className="border border-black bg-[#fafafa] p-4 space-y-3">
-            <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
-              Custom Tags &amp; Classifications (Optional)
-            </span>
-            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
-              Add additional custom properties or descriptive tags (e.g., &quot;Row-Finite&quot;, &quot;Rank-3 Basic&quot;). Press Enter or click Add Tag to attach.
-            </p>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={newTagInput}
-                onChange={e => setNewTagInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
-                      setCustomTags([...customTags, newTagInput.trim()]);
-                      setNewTagInput('');
-                    }
-                  }
-                }}
-                placeholder="e.g. Row-Finite, Strongly Connected"
-                className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
-                    setCustomTags([...customTags, newTagInput.trim()]);
-                    setNewTagInput('');
-                  }
-                }}
-                className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
-              >
-                Add Tag
-              </button>
-            </div>
-            {customTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {customTags.map((tag, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-neutral-200 border border-neutral-400 text-neutral-900 font-mono text-xs font-bold uppercase px-2.5 py-1 flex items-center gap-1.5"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => setCustomTags(customTags.filter((_, i) => i !== idx))}
-                      className="text-neutral-500 hover:text-red-700 font-bold cursor-pointer"
-                      title="Remove Tag"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Graph Diagram / Illustration Upload (Optional) */}
-          <div className="border-t border-black pt-4">
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2 flex items-center gap-1.5">
-              <ImageIcon className="w-4 h-4 text-black" />
-              Graph Diagram / Illustration Image (Optional)
-            </label>
-            {!imagePreview ? (
-              <label className="border border-dashed border-black bg-[#fafafa] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 transition-colors">
-                <Upload className="w-6 h-6 text-neutral-600" />
-                <span className="text-xs font-bold uppercase tracking-wider text-black">Click to select an image (.PNG, .JPG, .SVG)</span>
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500">Image will be hosted securely on Supabase Storage</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-              </label>
-            ) : (
-              <div className="border border-black bg-[#fafafa] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <img src={imagePreview} alt="Graph preview" className="w-20 h-20 object-contain border border-neutral-300 bg-white" />
-                  <div>
-                    <div className="text-xs font-mono font-bold text-black">{selectedImage?.name}</div>
-                    <div className="text-[10px] font-mono text-neutral-500">{selectedImage ? Math.round(selectedImage.size / 1024) + ' KB' : ''}</div>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 hover:bg-red-700 transition-colors flex items-center gap-1 cursor-pointer rounded-none"
-                >
-                  <X className="w-3.5 h-3.5" /> Remove Image
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Submitter & Contact Information */}
-          <div className="border-t border-black pt-4 space-y-4">
-            <span className="text-xs font-bold uppercase tracking-wider text-black block">
-              Contributor & Contact Information
-            </span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
@@ -499,6 +314,210 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                   Associated with your direct edit token and displayed as public contact.
                 </p>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Graph Name (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={graphName}
+                  onChange={e => setGraphName(e.target.value)}
+                  placeholder="e.g. Higher Rank C*-Algebra Generator"
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Paper Citation (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={paperCitation}
+                  onChange={e => setPaperCitation(e.target.value)}
+                  placeholder="e.g. ArXiv:2026.12345, J. Topology 2025"
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 2: GRAPH PROPERTIES */}
+          <div className="border-t border-black pt-6 space-y-6">
+            <div className="border-b border-black pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">2. Graph Properties</h4>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Structural metrics, invariants, custom tags, and visual diagrams</p>
+            </div>
+
+            {/* Basic Information */}
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2">
+                Basic Information
+              </span>
+              <div className="bg-[#fafafa] border border-black p-4 font-mono text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div>Colors (k): <span className="font-bold text-black">{draftData.k}</span></div>
+                <div>Vertices: <span className="font-bold text-black">{draftData.vertices.length}</span></div>
+                <div>Commuting Squares: <span className="font-bold text-black">{draftData.commuting_squares.length}</span></div>
+                <div>Commuting Cubes: <span className="font-bold text-black">{draftData.commuting_cubes.length}</span></div>
+              </div>
+            </div>
+
+            {/* Structural Algebraic Properties Checkboxes */}
+            <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
+                Structural Properties (Check all that apply)
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+                <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sourceFree}
+                    onChange={e => setSourceFree(e.target.checked)}
+                    className="w-4 h-4 accent-black"
+                  />
+                  Source Free
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={sinkFree}
+                    onChange={e => setSinkFree(e.target.checked)}
+                    className="w-4 h-4 accent-black"
+                  />
+                  Sink Free
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={aperiodic}
+                    onChange={e => setAperiodic(e.target.checked)}
+                    className="w-4 h-4 accent-black"
+                  />
+                  Aperiodic
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2.5 border border-black hover:bg-neutral-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={cofinal}
+                    onChange={e => setCofinal(e.target.checked)}
+                    className="w-4 h-4 accent-black"
+                  />
+                  Cofinal
+                </label>
+              </div>
+            </div>
+
+            {/* Groupoid Homology */}
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2">
+                Groupoid Homology Invariants
+              </span>
+              <HomologyEditor
+                initialHomology={homologyMap}
+                onChange={setHomologyMap}
+                title="Groupoid Homology"
+              />
+            </div>
+
+            {/* Custom Tags / Classifications */}
+            <div className="border border-black bg-[#fafafa] p-4 space-y-3">
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
+                Custom Tags &amp; Classifications (Optional)
+              </span>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
+                Add additional custom properties or descriptive tags (e.g., &quot;Row-Finite&quot;, &quot;Rank-3 Basic&quot;). Press Enter or click Add Tag to attach.
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newTagInput}
+                  onChange={e => setNewTagInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
+                        setCustomTags([...customTags, newTagInput.trim()]);
+                        setNewTagInput('');
+                      }
+                    }
+                  }}
+                  placeholder="e.g. Row-Finite, Strongly Connected"
+                  className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
+                      setCustomTags([...customTags, newTagInput.trim()]);
+                      setNewTagInput('');
+                    }
+                  }}
+                  className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
+                >
+                  Add Tag
+                </button>
+              </div>
+              {customTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {customTags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="bg-neutral-200 border border-neutral-400 text-neutral-900 font-mono text-xs font-bold uppercase px-2.5 py-1 flex items-center gap-1.5"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setCustomTags(customTags.filter((_, i) => i !== idx))}
+                        className="text-neutral-500 hover:text-red-700 font-bold cursor-pointer"
+                        title="Remove Tag"
+                      >
+                        &times;
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Graph Diagram / Illustration Upload */}
+            <div className="border-t border-black pt-4">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-2 flex items-center gap-1.5">
+                <ImageIcon className="w-4 h-4 text-black" />
+                Graph Diagram Selector / Illustration Image (Optional)
+              </label>
+              {!imagePreview ? (
+                <label className="border border-dashed border-black bg-[#fafafa] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 transition-colors">
+                  <Upload className="w-6 h-6 text-neutral-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-black">Click to select an image (.PNG, .JPG, .SVG)</span>
+                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">Image will be hosted securely on Supabase Storage</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <div className="border border-black bg-[#fafafa] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <img src={imagePreview} alt="Graph preview" className="w-20 h-20 object-contain border border-neutral-300 bg-white" />
+                    <div>
+                      <div className="text-xs font-mono font-bold text-black">{selectedImage?.name}</div>
+                      <div className="text-[10px] font-mono text-neutral-500">{selectedImage ? Math.round(selectedImage.size / 1024) + ' KB' : ''}</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 hover:bg-red-700 transition-colors flex items-center gap-1 cursor-pointer rounded-none"
+                  >
+                    <X className="w-3.5 h-3.5" /> Remove Image
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
