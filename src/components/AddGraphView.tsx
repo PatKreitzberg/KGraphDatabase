@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layers, FileText, Upload, CheckCircle, Copy, Link, Mail, ArrowLeft, Send, Image as ImageIcon, X } from 'lucide-react';
 import { MatrixBuilder } from './MatrixBuilder';
 import { TextBlockEditor } from './TextBlockEditor';
@@ -28,6 +28,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
   const [paperCitation, setPaperCitation] = useState('');
   const [homologyMap, setHomologyMap] = useState<Record<string, string>>({});
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [sameAsEdit, setSameAsEdit] = useState(false);
   const [submitterName, setSubmitterName] = useState('');
   const [sourceFree, setSourceFree] = useState(false);
   const [sinkFree, setSinkFree] = useState(false);
@@ -35,6 +37,30 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
   const [cofinal, setCofinal] = useState(false);
   const [customTags, setCustomTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState<string>('');
+  const [existingTags, setExistingTags] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (step === 'properties') {
+      const fetchTags = async () => {
+        try {
+          const { data, error } = await supabase.from('graphs').select('properties');
+          if (!error && data) {
+            const tagSet = new Set<string>();
+            data.forEach((item: any) => {
+              if (item.properties && Array.isArray(item.properties.tags)) {
+                item.properties.tags.forEach((t: string) => tagSet.add(t));
+              }
+            });
+            setExistingTags(Array.from(tagSet).sort());
+          }
+        } catch (err) {
+          console.error('Error fetching tags:', err);
+        }
+      };
+      fetchTags();
+    }
+  }, [step]);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState<string>('');
@@ -96,7 +122,11 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
       if (res.graph.properties?.name) setGraphName(res.graph.properties.name);
       if (res.graph.properties?.paper) setPaperCitation(res.graph.properties.paper);
       if (res.graph.properties?.submitter_name) setSubmitterName(res.graph.properties.submitter_name);
-      if (res.graph.properties?.contact_email) setOwnerEmail(res.graph.properties.contact_email);
+      if (res.graph.properties?.contact_email) {
+        setOwnerEmail(res.graph.properties.contact_email);
+        setContactEmail(res.graph.properties.contact_email);
+        setSameAsEdit(true);
+      }
       if (res.graph.properties?.homology) setHomologyMap(res.graph.properties.homology);
       if (res.graph.properties?.tags) setCustomTags(res.graph.properties.tags);
       if (res.graph.properties?.source_free !== undefined) setSourceFree(!!res.graph.properties.source_free);
@@ -113,10 +143,22 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
     e.preventDefault();
     if (!draftData) return;
 
-    if (!ownerEmail || !ownerEmail.includes('@')) {
-      setErrorMessage('Please enter a valid submitter email address. The edit token link will be associated with this address.');
+    if (!submitterName.trim()) {
+      setErrorMessage('Please enter your contributor name (Required).');
       return;
     }
+
+    if (!ownerEmail || !ownerEmail.includes('@')) {
+      setErrorMessage('Please enter a valid email address for edit token delivery (Required).');
+      return;
+    }
+
+    if (!graphName.trim()) {
+      setErrorMessage('Please enter a graph name (Required).');
+      return;
+    }
+
+    const finalContactEmail = sameAsEdit ? ownerEmail.trim() : contactEmail.trim();
 
     setIsSubmitting(true);
     setErrorMessage('');
@@ -156,7 +198,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
           name: graphName.trim() || undefined,
           paper: paperCitation.trim() || undefined,
           submitter_name: submitterName.trim() || undefined,
-          contact_email: ownerEmail.trim() || undefined,
+          contact_email: finalContactEmail || undefined,
           image_url: uploadedImageUrl,
           homology: homologyMap,
           tags: customTags.length > 0 ? customTags : undefined,
@@ -270,7 +312,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
 
               <ArrowLeft className="w-3.5 h-3.5" /> Back
             </button>
-p            <div>
+            <div>
               <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">Step 2 of 2</span>
             </div>
 
@@ -279,17 +321,18 @@ p            <div>
           {/* SECTION 1: GRAPH INFORMATION */}
           <div className="space-y-4">
             <div className="border-b border-black pb-2">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Graph Information</h4>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification and academic reference details</p>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Graph & Contributor Information</h4>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification, token delivery, and academic reference details</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                  Your Name / Contributor Name (Optional)
+                  Your Name / Contributor Name (Required) <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={submitterName}
                   onChange={e => setSubmitterName(e.target.value)}
                   placeholder="e.g. Prof. Jane Doe, Dr. Alex Vance"
@@ -300,36 +343,75 @@ p            <div>
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
                   <Mail className="w-4 h-4 text-black" />
-                  Contact Email Address (Required) <span className="text-red-600">*</span>
+                  Edit Token Email Address (Required) <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="email"
                   required
                   value={ownerEmail}
-                  onChange={e => setOwnerEmail(e.target.value)}
+                  onChange={e => {
+                    setOwnerEmail(e.target.value);
+                    if (sameAsEdit) setContactEmail(e.target.value);
+                  }}
                   placeholder="researcher@university.edu"
                   className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
                 <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
-                  Associated with your direct edit token and displayed as public contact.
+                  Email address to which the edit token will be sent and associated.
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-black" />
+                    Public Contact Email (Optional)
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-neutral-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={sameAsEdit}
+                      onChange={e => {
+                        const checked = e.target.checked;
+                        setSameAsEdit(checked);
+                        if (checked) setContactEmail(ownerEmail);
+                      }}
+                      className="w-3.5 h-3.5 accent-black"
+                    />
+                    Same as edit email
+                  </label>
+                </div>
+                <input
+                  type="email"
+                  disabled={sameAsEdit}
+                  value={sameAsEdit ? ownerEmail : contactEmail}
+                  onChange={e => setContactEmail(e.target.value)}
+                  placeholder="public.contact@university.edu"
+                  className="w-full font-mono text-xs border border-black p-2.5 bg-white disabled:bg-neutral-100 disabled:text-neutral-600 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+                <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                  Displayed publicly on the graph record as a contact address.
+                </p>
+              </div>
+
+              <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                  Graph Name (Optional)
+                  Graph Name (Required) <span className="text-red-600">*</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={graphName}
                   onChange={e => setGraphName(e.target.value)}
                   placeholder="e.g. Higher Rank C*-Algebra Generator"
                   className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 gap-4 pt-1">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                   Paper Citation (Optional)
@@ -431,35 +513,65 @@ p            <div>
               <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
                 Add additional custom properties or descriptive tags (e.g., &quot;Row-Finite&quot;, &quot;Rank-3 Basic&quot;). Press Enter or click Add Tag to attach.
               </p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newTagInput}
-                  onChange={e => setNewTagInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
+              <div className="relative">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={e => {
+                      setNewTagInput(e.target.value);
+                      setShowSuggestions(true);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
+                          setCustomTags([...customTags, newTagInput.trim()]);
+                          setNewTagInput('');
+                          setShowSuggestions(false);
+                        }
+                      }
+                    }}
+                    placeholder="e.g. Row-Finite, Strongly Connected"
+                    className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
                       if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
                         setCustomTags([...customTags, newTagInput.trim()]);
                         setNewTagInput('');
+                        setShowSuggestions(false);
                       }
-                    }
-                  }}
-                  placeholder="e.g. Row-Finite, Strongly Connected"
-                  className="flex-1 font-mono text-xs border border-black bg-white p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (newTagInput.trim() && !customTags.includes(newTagInput.trim())) {
-                      setCustomTags([...customTags, newTagInput.trim()]);
-                      setNewTagInput('');
-                    }
-                  }}
-                  className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
-                >
-                  Add Tag
-                </button>
+                    }}
+                    className="bg-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2.5 hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
+                  >
+                    Add Tag
+                  </button>
+                </div>
+                {showSuggestions && newTagInput.trim() && existingTags.some(t => t.toLowerCase().includes(newTagInput.trim().toLowerCase()) && !customTags.includes(t)) && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] max-h-48 overflow-y-auto">
+                    {existingTags
+                      .filter(t => t.toLowerCase().includes(newTagInput.trim().toLowerCase()) && !customTags.includes(t))
+                      .map((tag, idx) => (
+                        <div
+                          key={idx}
+                          onMouseDown={e => {
+                            e.preventDefault();
+                            setCustomTags([...customTags, tag]);
+                            setNewTagInput('');
+                            setShowSuggestions(false);
+                          }}
+                          className="px-3 py-2 font-mono text-xs font-bold uppercase cursor-pointer hover:bg-black hover:text-white transition-colors flex items-center justify-between border-b border-neutral-200 last:border-0"
+                        >
+                          <span>{tag}</span>
+                          <span className="text-[10px] uppercase opacity-60">Existing Tag</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
               {customTags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
@@ -594,6 +706,9 @@ p            <div>
                 setStep('input');
                 setDraftData(null);
                 setSubmitterName('');
+                setOwnerEmail('');
+                setContactEmail('');
+                setSameAsEdit(false);
                 setHomologyMap({});
                 setCustomTags([]);
                 setNewTagInput('');

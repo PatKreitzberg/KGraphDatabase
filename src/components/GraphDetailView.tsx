@@ -375,7 +375,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           <div className="text-right font-mono text-[10px] uppercase text-neutral-500 tracking-wider">
             <div>Submitted: {new Date(graph.created_at).toLocaleDateString()}</div>
             {graph.properties?.submitter_name && <div>Contributor: <span className="text-black font-bold">{graph.properties.submitter_name}</span></div>}
-            <div>Contact: <span className="text-neutral-600">{graph.properties?.contact_email || graph.owner_email}</span></div>
+            {graph.properties?.contact_email && <div>Contact: <span className="text-neutral-600">{graph.properties.contact_email}</span></div>}
           </div>
         </div>
 

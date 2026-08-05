@@ -478,7 +478,7 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                     <div>Commuting Squares: <span className="text-black font-bold">{g.commuting_squares.length}</span></div>
                     <div>Commuting Cubes: <span className="text-black font-bold">{g.commuting_cubes.length}</span></div>
                     {g.properties?.submitter_name && <div>Contributor: <span className="text-black font-bold">{g.properties.submitter_name}</span></div>}
-                    <div>Contact Email: <span className="text-neutral-600">{g.properties?.contact_email || g.owner_email}</span></div>
+                    {g.properties?.contact_email && <div>Contact Email: <span className="text-neutral-600">{g.properties.contact_email}</span></div>}
                   </div>
 
                   {/* Right: Homology LaTeX */}
