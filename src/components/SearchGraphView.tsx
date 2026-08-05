@@ -362,11 +362,6 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                         {g.properties.description}
                       </p>
                     )}
-                    {g.properties?.paper && (
-                      <p className="text-xs text-neutral-500 italic mt-0.5">
-                        Citation: {g.properties.paper}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -380,40 +375,25 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                   </div>
                 </div>
 
-                {/* Custom Tags */}
-                {g.properties?.tags && g.properties.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 font-mono text-[10px] pt-1">
-                    {g.properties.tags.map((t, i) => (
-                      <span key={i} className="bg-neutral-200 border border-neutral-400 text-neutral-900 px-2 py-0.5 font-bold uppercase tracking-wider">
-                        {t}
-                      </span>
-                    ))}
+                {/* Yellowish Contributor & Citation Box (Always visible) */}
+                <div className="bg-amber-50 border border-amber-300 p-3.5 text-xs font-mono space-y-2 text-amber-950">
+                  <div className="flex flex-wrap items-start gap-x-2">
+                    <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 min-w-[150px] shrink-0 mt-0.5">Contributor Name:</span>
+                    <span className="font-sans text-xs text-black font-bold">{g.properties?.submitter_name || 'Anonymous / Community Contributor'}</span>
                   </div>
-                )}
-
-                {/* Contributor & Citation Block */}
-                {(g.properties?.submitter_name || g.properties?.contact_email || g.properties?.paper) && (
-                  <div className="bg-[#fafafa] border border-black p-3.5 text-xs font-mono space-y-2 text-neutral-900">
-                    {g.properties?.submitter_name && (
-                      <div className="flex flex-wrap items-start gap-x-2">
-                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Contributor Name:</span>
-                        <span className="font-sans text-xs text-black font-bold">{g.properties.submitter_name}</span>
-                      </div>
-                    )}
-                    {g.properties?.contact_email && (
-                      <div className="flex flex-wrap items-start gap-x-2">
-                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Contact Email:</span>
-                        <span className="font-sans text-xs text-neutral-800 font-medium">{g.properties.contact_email}</span>
-                      </div>
-                    )}
-                    {g.properties?.paper && (
-                      <div className="flex flex-wrap items-start gap-x-2">
-                        <span className="font-bold uppercase tracking-wider text-[10px] text-neutral-500 min-w-[140px] shrink-0 mt-0.5">Associated Paper / Citation:</span>
-                        <span className="font-sans text-xs text-black font-medium">{g.properties.paper}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  {g.properties?.contact_email && (
+                    <div className="flex flex-wrap items-start gap-x-2">
+                      <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 min-w-[150px] shrink-0 mt-0.5">Contact Email:</span>
+                      <span className="font-sans text-xs text-amber-950 font-medium">{g.properties.contact_email}</span>
+                    </div>
+                  )}
+                  {g.properties?.paper && (
+                    <div className="flex flex-wrap items-start gap-x-2">
+                      <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 min-w-[150px] shrink-0 mt-0.5">Associated Paper:</span>
+                      <span className="font-sans text-xs text-black font-medium">{g.properties.paper}</span>
+                    </div>
+                  )}
+                </div>
 
                 {/* Dispute Flag Banner */}
                 {g.disputes && g.disputes.length > 0 && (
@@ -440,35 +420,58 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                 )}
 
                 {/* Structure stats & Homology preview */}
-                <div className={`grid grid-cols-1 ${homologyEntries.length > 0 ? 'md:grid-cols-2' : ''} gap-4 text-xs font-mono`}>
-                  {/* Left: Counts & Structural Properties */}
-                  <div className="bg-[#fafafa] p-4 border border-black space-y-2 text-neutral-700">
-                    <div className="space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                  {/* Left Box: General Graph Information */}
+                  <div className="bg-[#fafafa] p-4 border border-black space-y-3 text-neutral-700 flex flex-col justify-between">
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
+                        General Information
+                      </span>
                       <div>k Value: <span className="text-black font-bold">{g.k}</span></div>
                       <div>Number of Vertices: <span className="text-black font-bold">{g.vertices.length}</span></div>
                       <div>Number of Edges: <span className="text-black font-bold">{totalEdges}</span></div>
                     </div>
-                    {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal) && (
-                      <div className="pt-2 border-t border-neutral-200">
-                        <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1.5">
-                          Structural Properties
-                        </span>
-                        <div className="flex flex-wrap gap-1.5 text-black font-bold uppercase text-[10px]">
-                          {g.properties?.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Source Free</span>}
-                          {g.properties?.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Sink Free</span>}
-                          {g.properties?.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Aperiodic</span>}
-                          {g.properties?.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Cofinal</span>}
-                        </div>
+                    {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal || (g.properties?.tags && g.properties.tags.length > 0)) && (
+                      <div className="pt-2.5 border-t border-neutral-200 space-y-2">
+                        {(g.properties?.source_free || g.properties?.sink_free || g.properties?.aperiodic || g.properties?.cofinal) && (
+                          <div>
+                            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
+                              Structural Properties:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5 text-black font-bold uppercase text-[10px]">
+                              {g.properties?.source_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Source Free</span>}
+                              {g.properties?.sink_free && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Sink Free</span>}
+                              {g.properties?.aperiodic && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Aperiodic</span>}
+                              {g.properties?.cofinal && <span className="bg-black text-white px-2 py-0.5 font-bold tracking-wider">Cofinal</span>}
+                            </div>
+                          </div>
+                        )}
+                        {g.properties?.tags && g.properties.tags.length > 0 && (
+                          <div>
+                            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
+                              Tags:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5 font-bold uppercase text-[10px]">
+                              {g.properties.tags.map((t, i) => (
+                                <span key={i} className="bg-neutral-200 border border-neutral-400 text-neutral-900 px-2 py-0.5 font-bold tracking-wider">
+                                  {t}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
 
-                  {/* Right: Homology LaTeX (Only if nonempty) */}
-                  {homologyEntries.length > 0 && (
-                    <div className="bg-[#fafafa] p-4 border border-black space-y-2">
-                      <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
-                        Homology Group Invariants
-                      </span>
+                  {/* Right Box: Homology Group Invariants (Always visible) */}
+                  <div className="bg-[#fafafa] p-4 border border-black space-y-2 flex flex-col">
+                    <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest block mb-1">
+                      Homology Group Invariants
+                    </span>
+                    {homologyEntries.length === 0 ? (
+                      <span className="text-neutral-400 italic mt-1">No homology calculated yet.</span>
+                    ) : (
                       <div className="flex flex-wrap gap-2 items-center">
                         {homologyEntries.map(([deg, latex]) => (
                           <div key={deg} className="bg-white border border-black px-3 py-1 font-serif text-sm">
@@ -476,8 +479,8 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Interactive Graph Visualizer or Submitted Image in Search Summary */}
