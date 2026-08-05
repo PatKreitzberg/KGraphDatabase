@@ -144,7 +144,7 @@ export default function App() {
               K-Graph Database
             </a>
             <span className="text-[10px] tracking-widest text-neutral-500 uppercase font-mono">
-              Mathematical Structure Repository • JSON Storage (graphs.json)
+              Repository for Higher Rank Graphs
             </span>
           </div>
 
