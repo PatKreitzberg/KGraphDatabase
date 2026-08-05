@@ -1,0 +1,6 @@
+{
+  "name": "K-Graph Database",
+  "description": "Database web app for k-graphs with adjacency matrix builder, text block parser, homology editor, and JSON storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

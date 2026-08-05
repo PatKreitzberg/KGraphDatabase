@@ -1,0 +1,222 @@
+[
+  {
+    "id": "graph-2k-cube-01",
+    "edit_token_hash": "b06c98fb4fdce1bdf140aabae4995c0f3bce7e5bfad04138c8989a18e4ac1faf",
+    "edit_token": "tok_demo_2graph_alpha",
+    "owner_email": "researcher@topology-lab.org",
+    "created_at": "2026-07-15T10:00:00.000Z",
+    "k": 2,
+    "vertices": [
+      "v0",
+      "v1",
+      "v2",
+      "v3"
+    ],
+    "edges": {
+      "color_1": [
+        [
+          "e0",
+          "v0",
+          "v1"
+        ],
+        [
+          "e1",
+          "v2",
+          "v3"
+        ]
+      ],
+      "color_2": [
+        [
+          "e2",
+          "v0",
+          "v2"
+        ],
+        [
+          "e3",
+          "v1",
+          "v3"
+        ]
+      ]
+    },
+    "commuting_squares": [
+      {
+        "path_a": [
+          "e0",
+          "e3"
+        ],
+        "path_b": [
+          "e2",
+          "e1"
+        ]
+      }
+    ],
+    "commuting_cubes": [],
+    "properties": {
+      "name": "Standard 2-Graph Square Complex",
+      "paper": "Commutative Diagram Structures in Higher Rank Graphs (2025)",
+      "homology": {
+        "H0": "0",
+        "H1": "\\mathbb{Z}",
+        "H2": "\\mathbb{Z}^2"
+      },
+      "custom": {
+        "class": "Higher-rank graph algebra",
+        "dimension": "2"
+      }
+    },
+    "property_logs": [
+      {
+        "id": "log-01",
+        "key": "H2",
+        "value": "\\mathbb{Z}^2",
+        "contributor_email": "verifier@math.edu",
+        "added_at": "2026-07-20T14:30:00.000Z"
+      }
+    ]
+  },
+  {
+    "id": "graph-3k-tri-02",
+    "edit_token_hash": "c746b28a45d840006530e89d3c647da22d66fffe05f5b8f8f151c803f0b589e9",
+    "edit_token": "tok_demo_3graph_beta",
+    "owner_email": "combinatorics@univ.edu",
+    "created_at": "2026-07-22T16:00:00.000Z",
+    "k": 3,
+    "vertices": [
+      "v0",
+      "v1",
+      "v2",
+      "v3",
+      "v4",
+      "v5",
+      "v6",
+      "v7"
+    ],
+    "edges": {
+      "color_1": [
+        [
+          "e0",
+          "v0",
+          "v1"
+        ],
+        [
+          "e1",
+          "v2",
+          "v3"
+        ],
+        [
+          "e2",
+          "v4",
+          "v5"
+        ],
+        [
+          "e3",
+          "v6",
+          "v7"
+        ]
+      ],
+      "color_2": [
+        [
+          "e4",
+          "v0",
+          "v2"
+        ],
+        [
+          "e5",
+          "v1",
+          "v3"
+        ],
+        [
+          "e6",
+          "v4",
+          "v6"
+        ],
+        [
+          "e7",
+          "v5",
+          "v7"
+        ]
+      ],
+      "color_3": [
+        [
+          "e8",
+          "v0",
+          "v4"
+        ],
+        [
+          "e9",
+          "v1",
+          "v5"
+        ],
+        [
+          "e10",
+          "v2",
+          "v6"
+        ],
+        [
+          "e11",
+          "v3",
+          "v7"
+        ]
+      ]
+    },
+    "commuting_squares": [
+      {
+        "path_a": [
+          "e0",
+          "e5"
+        ],
+        "path_b": [
+          "e4",
+          "e1"
+        ]
+      },
+      {
+        "path_a": [
+          "e0",
+          "e9"
+        ],
+        "path_b": [
+          "e8",
+          "e2"
+        ]
+      },
+      {
+        "path_a": [
+          "e4",
+          "e10"
+        ],
+        "path_b": [
+          "e8",
+          "e6"
+        ]
+      }
+    ],
+    "commuting_cubes": [
+      {
+        "path_a": [
+          "e0",
+          "e5",
+          "e11"
+        ],
+        "path_b": [
+          "e8",
+          "e6",
+          "e3"
+        ]
+      }
+    ],
+    "properties": {
+      "name": "3-Cube Factorization Graph",
+      "paper": "3-Rank Graph Algebras and K-Theory Invariants",
+      "homology": {
+        "H0": "0",
+        "H1": "\\mathbb{Z}^3",
+        "H2": "\\mathbb{Z}_2 \\oplus \\mathbb{Z}"
+      },
+      "custom": {
+        "torsion": "Present in H2"
+      }
+    },
+    "property_logs": []
+  }
+]
