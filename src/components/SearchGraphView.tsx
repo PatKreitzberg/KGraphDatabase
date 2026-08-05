@@ -124,13 +124,14 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
         const q = searchQuery.trim().toLowerCase();
         filtered = filtered.filter(g => {
           const nameMatch = g.properties?.name?.toLowerCase().includes(q);
+          const descMatch = g.properties?.description?.toLowerCase().includes(q);
           const paperMatch = g.properties?.paper?.toLowerCase().includes(q);
           const contributorMatch = g.properties?.submitter_name?.toLowerCase().includes(q);
           const contactMatch = g.properties?.contact_email?.toLowerCase().includes(q);
           const emailMatch = g.owner_email.toLowerCase().includes(q);
           const idMatch = g.id.toLowerCase().includes(q);
           const tagMatch = g.properties?.tags?.some(t => t.toLowerCase().includes(q)) ?? false;
-          return nameMatch || paperMatch || contributorMatch || contactMatch || emailMatch || idMatch || tagMatch;
+          return nameMatch || descMatch || paperMatch || contributorMatch || contactMatch || emailMatch || idMatch || tagMatch;
         });
       }
 
@@ -372,6 +373,11 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph 
                     <h3 className="text-base font-bold text-black uppercase tracking-wider inline-block">
                       {g.properties?.name || `Graph ${g.id}`}
                     </h3>
+                    {g.properties?.description && (
+                      <p className="text-xs text-neutral-700 font-mono mt-1 line-clamp-2">
+                        {g.properties.description}
+                      </p>
+                    )}
                     {g.properties?.paper && (
                       <p className="text-xs text-neutral-500 italic mt-0.5">
                         Citation: {g.properties.paper}

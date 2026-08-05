@@ -5,6 +5,7 @@ export interface CommutingPath {
 
 export interface KGraphProperties {
   name?: string;
+  description?: string;
   paper?: string;
   submitter_name?: string;
   contact_email?: string;

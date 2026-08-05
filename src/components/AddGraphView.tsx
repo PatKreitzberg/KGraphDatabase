@@ -25,6 +25,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
   // Step 2: Properties & Submitter Email state
   const [step, setStep] = useState<'input' | 'properties' | 'completed'>('input');
   const [graphName, setGraphName] = useState('');
+  const [graphDescription, setGraphDescription] = useState('');
   const [paperCitation, setPaperCitation] = useState('');
   const [homologyMap, setHomologyMap] = useState<Record<string, string>>({});
   const [ownerEmail, setOwnerEmail] = useState('');
@@ -120,6 +121,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
       });
 
       if (res.graph.properties?.name) setGraphName(res.graph.properties.name);
+      if (res.graph.properties?.description) setGraphDescription(res.graph.properties.description);
       if (res.graph.properties?.paper) setPaperCitation(res.graph.properties.paper);
       if (res.graph.properties?.submitter_name) setSubmitterName(res.graph.properties.submitter_name);
       if (res.graph.properties?.contact_email) {
@@ -196,6 +198,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
         owner_email: ownerEmail.trim(),
         properties: {
           name: graphName.trim() || undefined,
+          description: graphDescription.trim() || undefined,
           paper: paperCitation.trim() || undefined,
           submitter_name: submitterName.trim() || undefined,
           contact_email: finalContactEmail || undefined,
@@ -318,14 +321,14 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
 
           </div>
 
-          {/* SECTION 1: GRAPH INFORMATION */}
+          {/* SECTION 1: CONTRIBUTOR INFORMATION */}
           <div className="space-y-4">
             <div className="border-b border-black pb-2">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Graph & Contributor Information</h4>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification, token delivery, and academic reference details</p>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Contributor Information</h4>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification and edit token delivery details</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                   Your Name / Contributor Name (Required) <span className="text-red-600">*</span>
@@ -339,7 +342,9 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                   className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
               </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
                   <Mail className="w-4 h-4 text-black" />
@@ -360,9 +365,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                   Email address to which the edit token will be sent and associated.
                 </p>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div>
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
@@ -395,7 +398,17 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                   Displayed publicly on the graph record as a contact address.
                 </p>
               </div>
+            </div>
+          </div>
 
+          {/* SECTION 2: GRAPH INFORMATION */}
+          <div className="border-t border-black pt-6 space-y-4">
+            <div className="border-b border-black pb-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">2. Graph Information</h4>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Identification, summary description, and academic reference details</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
                   Graph Name (Required) <span className="text-red-600">*</span>
@@ -408,6 +421,24 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
                   placeholder="e.g. Higher Rank C*-Algebra Generator"
                   className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 pt-1">
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Graph Description (Optional)
+                </label>
+                <textarea
+                  value={graphDescription}
+                  onChange={e => setGraphDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Provide a brief description of the graph, its mathematical significance, or construction details..."
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
+                />
+                <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
+                  Summary description explaining properties, motivations, or mathematical context of this graph.
+                </p>
               </div>
             </div>
 
@@ -427,10 +458,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
             </div>
           </div>
 
-          {/* SECTION 2: GRAPH PROPERTIES */}
+          {/* SECTION 3: GRAPH PROPERTIES */}
           <div className="border-t border-black pt-6 space-y-6">
             <div className="border-b border-black pb-2">
-              <h4 className="text-xs font-bold uppercase tracking-widest text-black">2. Graph Properties</h4>
+              <h4 className="text-xs font-bold uppercase tracking-widest text-black">3. Graph Properties</h4>
               <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Structural metrics, invariants, custom tags, and visual diagrams</p>
             </div>
 
@@ -705,6 +736,9 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved }) => {
               onClick={() => {
                 setStep('input');
                 setDraftData(null);
+                setGraphName('');
+                setGraphDescription('');
+                setPaperCitation('');
                 setSubmitterName('');
                 setOwnerEmail('');
                 setContactEmail('');

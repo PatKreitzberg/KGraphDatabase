@@ -53,6 +53,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
     commuting_cubes: CommutingPath[];
   } | null>(null);
   const [editName, setEditName] = useState<string>('');
+  const [editDescription, setEditDescription] = useState<string>('');
   const [editPaper, setEditPaper] = useState<string>('');
   const [editSubmitterName, setEditSubmitterName] = useState<string>('');
   const [editContactEmail, setEditContactEmail] = useState<string>('');
@@ -148,6 +149,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         } as KGraph);
         setIsTokenValid(isOwner);
         if (data.properties?.name) setEditName(data.properties.name);
+        if (data.properties?.description) setEditDescription(data.properties.description);
         if (data.properties?.paper) setEditPaper(data.properties.paper);
         if (data.properties?.submitter_name) setEditSubmitterName(data.properties.submitter_name);
         if (data.properties?.contact_email) setEditContactEmail(data.properties.contact_email);
@@ -204,6 +206,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
       const updatedProperties = {
         ...graph.properties,
         name: editName.trim() || undefined,
+        description: editDescription.trim() || undefined,
         paper: editPaper.trim() || undefined,
         submitter_name: editSubmitterName.trim() || undefined,
         contact_email: editContactEmail.trim() || undefined,
@@ -365,6 +368,11 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
             <h1 className="text-2xl font-bold text-black uppercase tracking-wider inline-block">
               {graph.properties?.name || `Graph ${graph.id}`}
             </h1>
+            {graph.properties?.description && (
+              <p className="text-xs text-neutral-800 mt-2 font-mono whitespace-pre-line">
+                {graph.properties.description}
+              </p>
+            )}
             {graph.properties?.paper && (
               <p className="text-xs text-neutral-600 italic mt-1 font-mono">
                 Citation: {graph.properties.paper}
@@ -754,6 +762,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
                         commuting_cubes: res.graph.commuting_cubes
                       });
                       if (res.graph.properties?.name) setEditName(res.graph.properties.name);
+                      if (res.graph.properties?.description) setEditDescription(res.graph.properties.description);
                       if (res.graph.properties?.paper) setEditPaper(res.graph.properties.paper);
                       if (res.graph.properties?.homology) setEditHomology(res.graph.properties.homology);
                       setEditMethod('metadata');
@@ -773,6 +782,18 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
                     type="text"
                     value={editName}
                     onChange={e => setEditName(e.target.value)}
+                    className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                    Edit Graph Description
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editDescription}
+                    onChange={e => setEditDescription(e.target.value)}
                     className="w-full border border-black p-2.5 text-xs font-mono focus:border-black focus:outline-none rounded-none transition-colors"
                   />
                 </div>

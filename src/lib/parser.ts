@@ -11,7 +11,7 @@ export function parseKGraphText(text: string): TextParseResult {
   const allEdgeIds = new Set<string>();
   const commutingSquares: CommutingPath[] = [];
   const commutingCubes: CommutingPath[] = [];
-  const properties: { name?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string> } = {
+  const properties: { name?: string; description?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string> } = {
     custom: {},
     homology: {}
   };
@@ -160,6 +160,8 @@ export function parseKGraphText(text: string): TextParseResult {
         }
       } else if (trimmed.toLowerCase().startsWith('name:')) {
         properties.name = trimmed.replace(/^name:\s*/i, '').trim();
+      } else if (trimmed.toLowerCase().startsWith('description:')) {
+        properties.description = trimmed.replace(/^description:\s*/i, '').trim();
       } else if (trimmed.toLowerCase().startsWith('paper:')) {
         properties.paper = trimmed.replace(/^paper:\s*/i, '').trim();
       } else {
@@ -211,7 +213,7 @@ export function formatKGraphToText(graph: {
   edges: Record<string, [string, string, string][]>;
   commuting_squares: CommutingPath[];
   commuting_cubes: CommutingPath[];
-  properties?: { name?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string> };
+  properties?: { name?: string; description?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string> };
 }): string {
   const lines: string[] = [];
 
@@ -249,6 +251,9 @@ export function formatKGraphToText(graph: {
   lines.push('# Properties');
   if (graph.properties?.name) {
     lines.push(`Name: ${graph.properties.name}`);
+  }
+  if (graph.properties?.description) {
+    lines.push(`Description: ${graph.properties.description}`);
   }
   if (graph.properties?.paper) {
     lines.push(`Paper: ${graph.properties.paper}`);

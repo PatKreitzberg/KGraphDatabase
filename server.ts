@@ -177,10 +177,11 @@ app.get('/api/graphs', async (req, res) => {
       const q = (search_query as string).toLowerCase();
       filtered = filtered.filter(g => {
         const nameMatch = g.properties?.name?.toLowerCase().includes(q);
+        const descMatch = g.properties?.description?.toLowerCase().includes(q);
         const paperMatch = g.properties?.paper?.toLowerCase().includes(q);
         const emailMatch = g.owner_email.toLowerCase().includes(q);
         const idMatch = g.id.toLowerCase().includes(q);
-        return nameMatch || paperMatch || emailMatch || idMatch;
+        return nameMatch || descMatch || paperMatch || emailMatch || idMatch;
       });
     }
 
