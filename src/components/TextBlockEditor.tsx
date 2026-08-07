@@ -71,7 +71,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialT
   const [cubesText, setCubesText] = useState<string>('');
 
   const [fileUploaded, setFileUploaded] = useState<boolean>(false);
-  const [fileUploaded, setFileUploaded] = useState<boolean>(false);
+  const [parseResult, setParseResult] = useState<TextParseResult | null>(null);
 
   const combinedText = useMemo(() => {
     let text = `# Vertices\n${verticesText.trim()}\n\n`;
