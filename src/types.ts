@@ -23,6 +23,7 @@ export interface PropertyLog {
   id: string;
   key: string;
   value: string;
+  note_type?: 'property' | 'tag' | 'homology' | 'link';
   contributor_email?: string;
   added_at: string;
 }
@@ -34,6 +35,18 @@ export interface GraphDispute {
   comment: string;
   created_at: string;
   status?: 'open' | 'resolved';
+  replies?: { comment: string; added_at: string }[];
+}
+
+export interface GraphLink {
+  target_id: string;
+  description: string;
+}
+
+export interface LinkedFrom {
+  source_id: string;
+  description: string;
+  source_name?: string;
 }
 
 export interface KGraph {
@@ -51,6 +64,8 @@ export interface KGraph {
   properties: KGraphProperties;
   property_logs?: PropertyLog[];
   disputes?: GraphDispute[];
+  links?: GraphLink[];
+  linked_from?: LinkedFrom[];
 }
 
 export type HomologyTermType = 'zero' | 'integer' | 'torsion';

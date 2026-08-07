@@ -247,9 +247,21 @@ app.get('/api/graphs/:id', async (req, res) => {
       }
     }
 
+    const linked_from = graphs
+      .filter(g => g.links && g.links.some(l => l.target_id === graph.id))
+      .map(g => {
+        const link = g.links!.find(l => l.target_id === graph.id);
+        return {
+          source_id: g.id,
+          source_name: g.properties?.name || `Graph ${g.id}`,
+          description: link!.description
+        };
+      });
+
     const { edit_token, ...sanitized } = graph;
     res.json({
       ...sanitized,
+      linked_from,
       is_owner: isValidToken,
       ...(isValidToken ? { edit_token: requestedToken } : {})
     });
@@ -260,7 +272,7 @@ app.get('/api/graphs/:id', async (req, res) => {
 
 app.post('/api/graphs', async (req, res) => {
   try {
-    const { k, vertices, edges, commuting_squares, commuting_cubes, properties, owner_email } = req.body;
+    const { k, vertices, edges, commuting_squares, commuting_cubes, properties, owner_email, links } = req.body;
 
     if (!owner_email || typeof owner_email !== 'string' || !owner_email.includes('@')) {
       return res.status(400).json({ error: 'A valid submitter email address is required.' });
@@ -299,7 +311,8 @@ app.post('/api/graphs', async (req, res) => {
       commuting_squares: commuting_squares || [],
       commuting_cubes: commuting_cubes || [],
       properties: properties || {},
-      property_logs: []
+      property_logs: [],
+      links: links || []
     };
 
     graphs.unshift(newGraph);
@@ -361,7 +374,7 @@ app.put('/api/graphs/:id', async (req, res) => {
       return res.status(403).json({ error: 'Invalid edit token for this graph.' });
     }
 
-    const { k, vertices, edges, commuting_squares, commuting_cubes, properties } = req.body;
+    const { k, vertices, edges, commuting_squares, commuting_cubes, properties, links } = req.body;
 
     const updatedGraph: KGraph = {
       ...existing,
@@ -374,6 +387,7 @@ app.put('/api/graphs/:id', async (req, res) => {
         ...existing.properties,
         ...(properties || {})
       },
+      links: links ?? existing.links,
       updated_at: new Date().toISOString()
     };
 
@@ -419,7 +433,7 @@ app.delete('/api/graphs/:id', async (req, res) => {
 // Append property log / custom property (ANY visitor can contribute)
 app.post('/api/graphs/:id/properties', async (req, res) => {
   try {
-    const { key, value, contributor_email, is_homology } = req.body;
+    const { key, value, contributor_email, is_homology, note_type } = req.body;
 
     if (!key || !value) {
       return res.status(400).json({ error: 'Property key and value are required.' });
@@ -454,6 +468,7 @@ app.post('/api/graphs/:id/properties', async (req, res) => {
       id: 'log-' + crypto.randomUUID().slice(0, 6),
       key,
       value,
+      note_type: note_type || (is_homology ? 'homology' : 'property'),
       contributor_email: contributor_email ? contributor_email.trim() : undefined,
       added_at: new Date().toISOString()
     };
@@ -510,10 +525,80 @@ app.post('/api/graphs/:id/disputes', async (req, res) => {
     graphs[index] = graph;
     await writeGraphs(graphs);
 
+    if (resend && graph.owner_email) {
+      try {
+        const editUrl = `${req.get('origin') || req.protocol + '://' + req.get('host')}/#edit/${graph.id}`;
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: graph.owner_email,
+          subject: `New Dispute Submitted on Graph ${graph.id}`,
+          html: `
+            <p>A new dispute has been raised on your graph <strong>${graph.properties?.name || graph.id}</strong>.</p>
+            <p><strong>Target:</strong> ${property_name || 'General Property'}</p>
+            <p><strong>Comment:</strong> ${comment}</p>
+            <p>You can reply to this dispute in your graph's edit view:</p>
+            <p><a href="${editUrl}">${editUrl}</a></p>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send dispute email:', err);
+      }
+    }
+
     const { edit_token, ...sanitized } = graph;
     res.json({ success: true, graph: sanitized, dispute: disputeEntry });
   } catch (err) {
     res.status(500).json({ error: 'Failed to record dispute' });
+  }
+});
+
+// Reply to a dispute (requires edit token)
+app.post('/api/graphs/:id/disputes/:disputeId/reply', async (req, res) => {
+  try {
+    const token = (req.headers['x-edit-token'] || req.body.edit_token || req.query.token) as string;
+    if (!token) {
+      return res.status(401).json({ error: 'Edit token required to reply to dispute.' });
+    }
+
+    const { comment } = req.body;
+    if (!comment || typeof comment !== 'string' || !comment.trim()) {
+      return res.status(400).json({ error: 'Reply comment is required.' });
+    }
+
+    const graphs = await readGraphs();
+    const index = graphs.findIndex(g => g.id === req.params.id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'Graph not found.' });
+    }
+
+    const graph = graphs[index];
+    if (hashToken(token) !== graph.edit_token_hash) {
+      return res.status(403).json({ error: 'Invalid edit token for this graph.' });
+    }
+
+    if (!graph.disputes) {
+      return res.status(404).json({ error: 'Dispute not found.' });
+    }
+
+    const dispute = graph.disputes.find(d => d.id === req.params.disputeId);
+    if (!dispute) {
+      return res.status(404).json({ error: 'Dispute not found.' });
+    }
+
+    if (!dispute.replies) dispute.replies = [];
+    dispute.replies.push({
+      comment: comment.trim(),
+      added_at: new Date().toISOString()
+    });
+
+    graph.updated_at = new Date().toISOString();
+    graphs[index] = graph;
+    await writeGraphs(graphs);
+
+    res.json({ success: true, dispute });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record reply' });
   }
 });
 

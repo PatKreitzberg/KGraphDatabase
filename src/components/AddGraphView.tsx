@@ -3,7 +3,7 @@ import { Layers, FileText, Upload, CheckCircle, Copy, Link, Mail, ArrowLeft, Sen
 import { MatrixBuilder } from './MatrixBuilder';
 import { TextBlockEditor } from './TextBlockEditor';
 import { HomologyEditor } from './HomologyEditor';
-import { TextParseResult, KGraphProperties, CommutingPath } from '../types';
+import { TextParseResult, KGraphProperties, CommutingPath, GraphLink } from '../types';
 import { api } from '../lib/api';
 import { draftToTextBlock } from '../lib/parser';
 
@@ -48,6 +48,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   const [showExistingUserModal, setShowExistingUserModal] = useState<boolean>(false);
   const [existingUserEmail, setExistingUserEmail] = useState<string>('');
   const [emailRequestStatus, setEmailRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const [graphLinks, setGraphLinks] = useState<GraphLink[]>([]);
+  const [newLinkTargetId, setNewLinkTargetId] = useState<string>('');
+  const [newLinkDescription, setNewLinkDescription] = useState<string>('');
 
   useEffect(() => {
     const dirty = (step !== 'completed') && (
@@ -230,7 +234,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               ...g.properties,
               submitter_name: submitterName.trim() || undefined,
               contact_email: finalContactEmail || undefined
-            }
+            },
+            links: graphLinks
           });
           if (!res || !res.success) {
             throw new Error(`Failed to create graph ${i + 1}`);
@@ -265,7 +270,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
             sink_free: sinkFree,
             aperiodic: aperiodic,
             cofinal: cofinal
-          }
+          },
+          links: graphLinks
         };
 
         firstRes = await api.createGraph({
@@ -275,7 +281,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
           edges: payload.edges,
           commuting_squares: payload.commuting_squares,
           commuting_cubes: payload.commuting_cubes,
-          properties: payload.properties
+          properties: payload.properties,
+          links: payload.links
         });
 
         if (!firstRes || !firstRes.success) {
@@ -737,6 +744,74 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* SECTION 4: GRAPH LINKS */}
+            <div className="border-t border-black pt-6">
+              <div className="border-b border-black pb-2 mb-4">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-black flex items-center gap-1.5">
+                  <Link className="w-4 h-4" /> 4. Graph Links (Relationships)
+                </h4>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Link this graph to other graphs in the database</p>
+              </div>
+              
+              <div className="space-y-4">
+                {graphLinks.length > 0 && (
+                  <div className="space-y-2">
+                    {graphLinks.map((link, idx) => (
+                      <div key={idx} className="border border-black bg-[#fafafa] p-3 flex items-center justify-between font-mono text-xs">
+                        <div>
+                          <span className="font-bold text-black uppercase">To: {link.target_id}</span>
+                          <span className="block text-neutral-600 mt-1">{link.description}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGraphLinks(graphLinks.filter((_, i) => i !== idx))}
+                          className="text-red-700 hover:text-red-900 font-bold px-2 py-1 uppercase text-[10px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="border border-black bg-[#fafafa] p-4 flex flex-col gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-black mb-1">Target Graph ID</label>
+                    <input
+                      type="text"
+                      value={newLinkTargetId}
+                      onChange={e => setNewLinkTargetId(e.target.value)}
+                      placeholder="e.g. graph-123abc45"
+                      className="w-full font-mono text-xs border border-black p-2 focus:border-black focus:outline-none rounded-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-black mb-1">Relationship Description</label>
+                    <input
+                      type="text"
+                      value={newLinkDescription}
+                      onChange={e => setNewLinkDescription(e.target.value)}
+                      placeholder="e.g. This is the IKKI insplit of graph A"
+                      className="w-full font-mono text-xs border border-black p-2 focus:border-black focus:outline-none rounded-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newLinkTargetId.trim() && newLinkDescription.trim()) {
+                        setGraphLinks([...graphLinks, { target_id: newLinkTargetId.trim(), description: newLinkDescription.trim() }]);
+                        setNewLinkTargetId('');
+                        setNewLinkDescription('');
+                      }
+                    }}
+                    className="self-end bg-black text-white text-[10px] font-bold uppercase px-4 py-2 hover:bg-neutral-800 transition-colors"
+                  >
+                    Add Link
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           </>

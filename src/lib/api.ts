@@ -85,7 +85,8 @@ export const api = {
         edges: payload.updated_edges,
         commuting_squares: payload.updated_squares,
         commuting_cubes: payload.updated_cubes,
-        properties: payload.updated_properties
+        properties: payload.updated_properties,
+        links: payload.links
       })
     });
     if (!res.ok) {
@@ -147,12 +148,25 @@ export const api = {
     return res.json();
   },
 
-  addProperty: async (payload: { target_id: string; prop_key: string; prop_value: string; contributor_email: string | null; is_homology: boolean }): Promise<{ success: boolean }> => {
-    const { target_id, prop_key, prop_value, contributor_email, is_homology } = payload;
+  addProperty: async (payload: { target_id: string; prop_key: string; prop_value: string; contributor_email: string | null; is_homology: boolean; note_type?: string }): Promise<{ success: boolean }> => {
+    const { target_id, prop_key, prop_value, contributor_email, is_homology, note_type } = payload;
     const res = await fetch(`${API_BASE}/graphs/${encodeURIComponent(target_id)}/properties`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key: prop_key, value: prop_value, contributor_email, is_homology })
+      body: JSON.stringify({ key: prop_key, value: prop_value, contributor_email, is_homology, note_type })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  replyToDispute: async (payload: { target_id: string; dispute_id: string; comment: string; token: string }): Promise<{ success: boolean }> => {
+    const res = await fetch(`${API_BASE}/graphs/${encodeURIComponent(payload.target_id)}/disputes/${encodeURIComponent(payload.dispute_id)}/reply`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-edit-token': payload.token
+      },
+      body: JSON.stringify({ comment: payload.comment })
     });
     if (!res.ok) throw new Error(await res.text());
     return res.json();

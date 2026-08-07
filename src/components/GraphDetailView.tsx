@@ -37,7 +37,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
   const [showAppendModal, setShowAppendModal] = useState<boolean>(false);
   const [appendKey, setAppendKey] = useState<string>('H2');
   const [appendValue, setAppendValue] = useState<string>('\\mathbb{Z}');
-  const [isAppendHomology, setIsAppendHomology] = useState<boolean>(true);
+  const [appendNoteType, setAppendNoteType] = useState<'property' | 'tag' | 'homology' | 'link'>('property');
   const [contributorEmail, setContributorEmail] = useState<string>('');
   const [isSubmittingProperty, setIsSubmittingProperty] = useState<boolean>(false);
 
@@ -117,7 +117,8 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         prop_key: appendKey.trim(),
         prop_value: appendValue.trim(),
         contributor_email: contributorEmail.trim() || null,
-        is_homology: isAppendHomology
+        is_homology: appendNoteType === 'homology',
+        note_type: appendNoteType
       });
 
       if (res && res.success) {
@@ -219,6 +220,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
             <h1 className="text-2xl font-bold text-black uppercase tracking-wider inline-block">
               {graph.properties?.name || `Graph ${graph.id}`}
             </h1>
+            <div className="text-xs font-mono text-neutral-500 mt-1 uppercase">ID: {graph.id}</div>
             {graph.properties?.description && (
               <p className="text-xs text-neutral-800 mt-2 font-mono whitespace-pre-line">
                 {graph.properties.description}
@@ -280,15 +282,46 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
             </div>
           </div>
         )}
-      </div>
 
-      {/* Interactive k-Graph Canvas */}
-      <KGraphVisualizer
-        vertices={graph.vertices}
-        edges={graph.edges}
-        commutingSquares={graph.commuting_squares}
-        commutingCubes={graph.commuting_cubes}
-      />
+        {/* Graph Relationships / Links */}
+        {((graph.links && graph.links.length > 0) || (graph.linked_from && graph.linked_from.length > 0)) && (
+          <div className="border-t border-black pt-4 mt-4 space-y-4">
+            <h4 className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 mb-2 font-mono">Graph Relationships</h4>
+            
+            {graph.links && graph.links.length > 0 && (
+              <div>
+                <span className="text-[10px] font-bold uppercase text-black block mb-1">Graphs this links to:</span>
+                <ul className="space-y-2">
+                  {graph.links.map((link, idx) => (
+                    <li key={idx} className="font-mono text-xs border border-neutral-300 p-2 bg-[#fafafa]">
+                      <a href={`#detail/${link.target_id}`} className="text-black font-bold underline hover:bg-black hover:text-white transition-colors">
+                        {link.target_id}
+                      </a>
+                      <span className="ml-2 text-neutral-600">- {link.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            
+            {graph.linked_from && graph.linked_from.length > 0 && (
+              <div>
+                <span className="text-[10px] font-bold uppercase text-black block mb-1">Graphs that link to this:</span>
+                <ul className="space-y-2">
+                  {graph.linked_from.map((link, idx) => (
+                    <li key={idx} className="font-mono text-xs border border-neutral-300 p-2 bg-[#fafafa]">
+                      <a href={`#detail/${link.source_id}`} className="text-black font-bold underline hover:bg-black hover:text-white transition-colors">
+                        {link.source_name || link.source_id}
+                      </a>
+                      <span className="ml-2 text-neutral-600">- {link.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Homology & Invariants Display */}
       <div className="border border-black bg-white p-6 space-y-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
@@ -296,13 +329,6 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
           <h3 className="font-bold text-xs uppercase tracking-widest text-black">
             Homology Group Invariants
           </h3>
-          <button
-            onClick={() => setShowAppendModal(true)}
-            className="text-xs font-bold uppercase tracking-widest bg-black text-white px-4 py-2 hover:bg-neutral-800 transition-colors flex items-center gap-1.5 cursor-pointer rounded-none"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Contribute Property / Computation
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 font-mono text-xs">
@@ -317,92 +343,119 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Append-Only Property Log History */}
-      <div className="border border-black bg-white p-6 space-y-3 font-sans shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-        <h4 className="font-bold text-xs uppercase tracking-widest text-black border-b border-black pb-2">
-          Public Property Contribution Log ({graph.property_logs?.length || 0})
-        </h4>
+      {/* Interactive k-Graph Canvas */}
+      <KGraphVisualizer
+        vertices={graph.vertices}
+        edges={graph.edges}
+        commutingSquares={graph.commuting_squares}
+        commutingCubes={graph.commuting_cubes}
+      />
 
-        {(!graph.property_logs || graph.property_logs.length === 0) ? (
-          <p className="text-xs text-neutral-500 uppercase tracking-wider font-mono py-2">
-            No public properties added yet. Any visitor can contribute new computations or citations above.
+      {/* Community Notes Section */}
+      <div className="border border-black bg-white p-6 space-y-6 font-sans shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+        <div className="border-b border-black pb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-bold text-lg uppercase tracking-widest text-black">
+            Community Notes
+          </h3>
+          <p className="text-[10px] uppercase text-neutral-500 tracking-wider">
+            Submissions and reviews by the community
           </p>
-        ) : (
-          <div className="space-y-2 font-mono text-xs">
-            {graph.property_logs.map((log) => (
-              <div key={log.id} className="p-3 border border-black bg-[#fafafa] flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <span className="font-bold text-black uppercase tracking-wider mr-2">[{log.key}]:</span>
-                  <span className="font-serif text-sm bg-white border border-black px-2 py-0.5 inline-block">
-                    <MathView math={log.value} />
-                  </span>
-                </div>
-                <div className="text-[10px] uppercase text-neutral-500 tracking-wider">
-                  By: {log.contributor_email || 'Anonymous Visitor'} • {new Date(log.added_at).toLocaleDateString()}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Property Disputes Section */}
-      <div className="border border-black bg-white p-6 space-y-4 font-sans shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
-        <div className="flex flex-wrap items-center justify-between border-b border-black pb-3 gap-2">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-amber-600" />
-            <div>
-              <h3 className="font-bold text-xs uppercase tracking-widest text-black flex items-center gap-2">
-                Property Disputes &amp; Community Flags
-                {graph.disputes && graph.disputes.length > 0 && (
-                  <span className="bg-amber-500 text-black px-2 py-0.5 text-[10px] font-mono font-bold">
-                    {graph.disputes.length} Flagged
-                  </span>
-                )}
-              </h3>
-              <p className="text-[10px] uppercase text-neutral-500 tracking-wider mt-0.5">
-                Community review system for incorrect properties, homology signatures, or relations.
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setShowDisputeModal(true)}
-            className="text-xs font-bold uppercase tracking-widest bg-amber-400 text-black border border-black px-4 py-2 hover:bg-amber-500 transition-colors flex items-center gap-1.5 cursor-pointer rounded-none"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            Dispute / Flag Property Error
-          </button>
         </div>
 
-        {(!graph.disputes || graph.disputes.length === 0) ? (
-          <p className="text-xs text-neutral-500 uppercase tracking-wider font-mono py-2">
-            No disputes reported for this graph entry. If you suspect a calculation or property is incorrect, hit the dispute button above.
-          </p>
-        ) : (
-          <div className="space-y-3 font-mono text-xs">
-            {graph.disputes.map((d) => (
-              <div key={d.id} className="p-4 border border-black bg-amber-50/50 space-y-2">
-                <div className="flex flex-wrap items-center justify-between border-b border-black/20 pb-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-black text-white font-bold text-[10px] uppercase px-2 py-0.5">
-                      {d.property_name || 'Property'}
-                    </span>
-                    <span className="font-bold text-amber-900 text-xs uppercase">
-                      Status: {d.status || 'open'}
-                    </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Notes List */}
+          <div>
+            <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
+              <h4 className="font-bold text-xs uppercase tracking-widest text-black">
+                Contributions ({graph.property_logs?.length || 0})
+              </h4>
+              <button
+                onClick={() => setShowAppendModal(true)}
+                className="text-[10px] font-bold uppercase bg-black text-white px-3 py-1.5 hover:bg-neutral-800 transition-colors rounded-none"
+              >
+                + Add Note
+              </button>
+            </div>
+            {(!graph.property_logs || graph.property_logs.length === 0) ? (
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-mono">
+                No community notes added yet.
+              </p>
+            ) : (
+              <div className="space-y-2 font-mono text-[10px]">
+                {graph.property_logs.map((log) => (
+                  <div key={log.id} className="p-3 border border-neutral-300 bg-[#fafafa]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold uppercase text-black bg-neutral-200 px-1 py-0.5">{log.note_type || 'property'}</span>
+                      <span className="text-neutral-500">{new Date(log.added_at).toLocaleDateString()}</span>
+                    </div>
+                    <div className="font-bold uppercase text-black mb-1">{log.key}</div>
+                    <div className="bg-white border border-neutral-200 p-2 break-words">
+                      {log.note_type === 'homology' ? (
+                        <MathView math={log.value} />
+                      ) : (
+                        log.value
+                      )}
+                    </div>
+                    <div className="mt-1 text-neutral-500 uppercase">By: {log.contributor_email || 'Anonymous'}</div>
                   </div>
-                  <div className="text-[10px] text-neutral-500 uppercase">
-                    By: {d.author_email || 'Anonymous Contributor'} • {new Date(d.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-                <p className="font-sans text-xs text-black leading-relaxed whitespace-pre-wrap">
-                  {d.comment}
-                </p>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {/* Disputes List */}
+          <div>
+            <div className="flex items-center justify-between border-b border-black pb-2 mb-3">
+              <h4 className="font-bold text-xs uppercase tracking-widest text-black flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
+                Disputes ({graph.disputes?.length || 0})
+              </h4>
+              <button
+                onClick={() => setShowDisputeModal(true)}
+                className="text-[10px] font-bold uppercase bg-amber-400 text-black border border-black px-3 py-1.5 hover:bg-amber-500 transition-colors rounded-none"
+              >
+                + File Dispute
+              </button>
+            </div>
+            {(!graph.disputes || graph.disputes.length === 0) ? (
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-mono">
+                No disputes reported.
+              </p>
+            ) : (
+              <div className="space-y-3 font-mono text-[10px]">
+                {graph.disputes.map((d) => (
+                  <div key={d.id} className="p-3 border border-black bg-amber-50/50">
+                    <div className="flex items-center justify-between border-b border-black/20 pb-1 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="bg-black text-white font-bold uppercase px-1 py-0.5">{d.property_name || 'General'}</span>
+                        <span className={`font-bold uppercase ${d.status === 'resolved' ? 'text-green-600' : 'text-amber-600'}`}>[{d.status || 'open'}]</span>
+                      </div>
+                      <span className="text-neutral-500">{new Date(d.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <p className="font-sans text-xs text-black leading-relaxed whitespace-pre-wrap mb-2">
+                      {d.comment}
+                    </p>
+                    <div className="text-neutral-500 uppercase border-b border-black/10 pb-1 mb-1">
+                      By: {d.author_email || 'Anonymous'}
+                    </div>
+                    {/* Replies */}
+                    {d.replies && d.replies.length > 0 && (
+                      <div className="mt-2 pl-3 border-l-2 border-black space-y-2">
+                        <div className="text-[9px] font-bold uppercase tracking-widest text-black">Owner Replies</div>
+                        {d.replies.map((reply, rIdx) => (
+                          <div key={rIdx} className="bg-white border border-neutral-300 p-2">
+                            <p className="font-sans text-xs text-black whitespace-pre-wrap mb-1">{reply.comment}</p>
+                            <span className="text-[9px] text-neutral-500 uppercase">{new Date(reply.added_at).toLocaleDateString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Modal for Dispute Submission */}
@@ -513,7 +566,23 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
             <form onSubmit={handleAppendProperty} className="space-y-4 text-xs font-sans">
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
-                  Property Key / Degree (e.g. H2, H3, Torsion, Invariant)
+                  Note Type
+                </label>
+                <select
+                  value={appendNoteType}
+                  onChange={(e: any) => setAppendNoteType(e.target.value)}
+                  className="w-full border border-black p-2.5 font-mono text-xs focus:border-black focus:outline-none rounded-none transition-colors"
+                >
+                  <option value="property">Property</option>
+                  <option value="tag">Tag</option>
+                  <option value="homology">Homology Group</option>
+                  <option value="link">Link</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Title / Key (e.g. H2, Torsion, Graph Link Target)
                 </label>
                 <input
                   type="text"

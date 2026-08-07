@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, FileText, Upload, CheckCircle, ArrowLeft, Send, Image as ImageIcon, X, Loader2, Eye, Search } from 'lucide-react';
+import { Layers, FileText, Upload, CheckCircle, ArrowLeft, Send, Image as ImageIcon, X, Loader2, Eye, Search, Link } from 'lucide-react';
 import { MatrixBuilder } from './MatrixBuilder';
 import { TextBlockEditor } from './TextBlockEditor';
 import { HomologyEditor } from './HomologyEditor';
-import { TextParseResult, KGraphProperties, CommutingPath, KGraph } from '../types';
+import { TextParseResult, KGraphProperties, CommutingPath, KGraph, GraphLink, GraphDispute } from '../types';
 import { api } from '../lib/api';
 import { draftToTextBlock } from '../lib/parser';
 
@@ -53,6 +53,12 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
+  const [graphLinks, setGraphLinks] = useState<GraphLink[]>([]);
+  const [newLinkTargetId, setNewLinkTargetId] = useState<string>('');
+  const [newLinkDescription, setNewLinkDescription] = useState<string>('');
+  const [disputes, setDisputes] = useState<GraphDispute[]>([]);
+  const [replyComments, setReplyComments] = useState<Record<string, string>>({});
+
   // Image states
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -96,6 +102,8 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
         setAperiodic(!!props.aperiodic);
         setCofinal(!!props.cofinal);
         setCustomTags(props.tags && Array.isArray(props.tags) ? props.tags : []);
+        setGraphLinks(g.links || []);
+        setDisputes(g.disputes || []);
         
         if (props.image_url) {
           setExistingImageUrl(props.image_url);
@@ -149,6 +157,26 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
       URL.revokeObjectURL(imagePreview);
     }
     setImagePreview(null);
+  };
+
+  const handleReplyToDispute = async (disputeId: string) => {
+    const comment = replyComments[disputeId];
+    if (!comment || !comment.trim()) return;
+
+    try {
+      const res = await api.replyToDispute({
+        target_id: graphId,
+        dispute_id: disputeId,
+        comment: comment.trim(),
+        token: editToken
+      });
+      if (res && res.success) {
+        setDisputes(disputes.map(d => d.id === disputeId ? res.dispute : d));
+        setReplyComments(prev => ({ ...prev, [disputeId]: '' }));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to submit reply.');
+    }
   };
 
   // Handler for Matrix Builder submission
@@ -238,7 +266,8 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
         updated_edges: draftData.edges,
         updated_squares: draftData.commuting_squares,
         updated_cubes: draftData.commuting_cubes,
-        updated_properties: updatedProperties
+        updated_properties: updatedProperties,
+        links: graphLinks
       });
 
       if (!res || !res.success) {
@@ -701,7 +730,138 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
                 </div>
               )}
             </div>
+
+            {/* SECTION 4: GRAPH LINKS */}
+            <div className="border-t border-black pt-6">
+              <div className="border-b border-black pb-2 mb-4">
+                <h4 className="text-xs font-bold uppercase tracking-widest text-black flex items-center gap-1.5">
+                  <Link className="w-4 h-4" /> 4. Graph Links (Relationships)
+                </h4>
+                <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Link this graph to other graphs in the database</p>
+              </div>
+              
+              <div className="space-y-4">
+                {graphLinks.length > 0 && (
+                  <div className="space-y-2">
+                    {graphLinks.map((link, idx) => (
+                      <div key={idx} className="border border-black bg-[#fafafa] p-3 flex items-center justify-between font-mono text-xs">
+                        <div>
+                          <span className="font-bold text-black uppercase">To: {link.target_id}</span>
+                          <span className="block text-neutral-600 mt-1">{link.description}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setGraphLinks(graphLinks.filter((_, i) => i !== idx))}
+                          className="text-red-700 hover:text-red-900 font-bold px-2 py-1 uppercase text-[10px]"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="border border-black bg-[#fafafa] p-4 flex flex-col gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-black mb-1">Target Graph ID</label>
+                    <input
+                      type="text"
+                      value={newLinkTargetId}
+                      onChange={e => setNewLinkTargetId(e.target.value)}
+                      placeholder="e.g. graph-123abc45"
+                      className="w-full font-mono text-xs border border-black p-2 focus:border-black focus:outline-none rounded-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-black mb-1">Relationship Description</label>
+                    <input
+                      type="text"
+                      value={newLinkDescription}
+                      onChange={e => setNewLinkDescription(e.target.value)}
+                      placeholder="e.g. This is the IKKI insplit of graph A"
+                      className="w-full font-mono text-xs border border-black p-2 focus:border-black focus:outline-none rounded-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newLinkTargetId.trim() && newLinkDescription.trim()) {
+                        setGraphLinks([...graphLinks, { target_id: newLinkTargetId.trim(), description: newLinkDescription.trim() }]);
+                        setNewLinkTargetId('');
+                        setNewLinkDescription('');
+                      }
+                    }}
+                    className="self-end bg-black text-white text-[10px] font-bold uppercase px-4 py-2 hover:bg-neutral-800 transition-colors"
+                  >
+                    Add Link
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+
+            {/* SECTION 5: DISPUTES & FEEDBACK */}
+            {disputes.length > 0 && (
+              <div className="border-t border-black pt-6">
+                <div className="border-b border-black pb-2 mb-4">
+                  <h4 className="text-xs font-bold uppercase tracking-widest text-black">
+                    5. Disputes &amp; Community Feedback
+                  </h4>
+                  <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Review and reply to disputes raised by the community</p>
+                </div>
+                
+                <div className="space-y-4">
+                  {disputes.map(dispute => (
+                    <div key={dispute.id} className="border border-black bg-amber-50/50 p-4 font-sans space-y-3">
+                      <div className="flex items-center justify-between border-b border-black/20 pb-2">
+                        <div>
+                          <span className="font-bold text-black uppercase text-[10px] bg-white border border-black px-1.5 py-0.5 mr-2">
+                            {dispute.property_name || 'General'}
+                          </span>
+                          <span className="text-[10px] text-neutral-500 uppercase">
+                            By: {dispute.author_email || 'Anonymous'} • {new Date(dispute.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <span className="font-bold text-amber-900 text-[10px] uppercase">[{dispute.status || 'open'}]</span>
+                      </div>
+                      <p className="text-xs text-black whitespace-pre-wrap">{dispute.comment}</p>
+                      
+                      {/* Existing replies */}
+                      {dispute.replies && dispute.replies.length > 0 && (
+                        <div className="pl-3 border-l-2 border-black space-y-2 mt-2">
+                          <div className="text-[9px] font-bold uppercase tracking-widest text-black">Your Replies:</div>
+                          {dispute.replies.map((reply, rIdx) => (
+                            <div key={rIdx} className="bg-white border border-neutral-300 p-2">
+                              <p className="text-xs text-black whitespace-pre-wrap mb-1">{reply.comment}</p>
+                              <span className="text-[9px] text-neutral-500 uppercase">{new Date(reply.added_at).toLocaleDateString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Reply Input */}
+                      <div className="flex gap-2 pt-2">
+                        <input
+                          type="text"
+                          value={replyComments[dispute.id] || ''}
+                          onChange={e => setReplyComments({ ...replyComments, [dispute.id]: e.target.value })}
+                          placeholder="Type a reply..."
+                          className="flex-1 font-mono text-xs border border-black p-2 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleReplyToDispute(dispute.id)}
+                          disabled={!replyComments[dispute.id]?.trim()}
+                          className="bg-black text-white px-4 text-xs font-bold uppercase disabled:opacity-50"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
           {errorMessage && (
             <div className="border border-red-700 bg-red-100 text-red-900 px-4 py-3 font-mono text-xs uppercase font-bold">
