@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 interface SearchGraphViewProps {
   onSelectGraph: (graphId: string) => void;
   onEditGraph: (graphId: string) => void;
+  isActive?: boolean;
 }
 
 interface FilterNumericInputProps {
@@ -73,7 +74,7 @@ const FilterNumericInput: React.FC<FilterNumericInputProps> = ({ label, value, o
   );
 };
 
-export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph, onEditGraph }) => {
+export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph, onEditGraph, isActive = true }) => {
   const [kFilter, setKFilter] = useState<string>('');
   const [minVertices, setMinVertices] = useState<string>('');
   const [maxVertices, setMaxVertices] = useState<string>('');
@@ -178,8 +179,10 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
   };
 
   useEffect(() => {
-    fetchGraphs();
-  }, [kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
+    if (isActive) {
+      fetchGraphs();
+    }
+  }, [isActive, kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 font-sans">

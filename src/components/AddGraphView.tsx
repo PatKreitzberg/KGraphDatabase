@@ -248,6 +248,19 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
         throw new Error('Failed to create graph');
       }
 
+      if (res.is_existing_user) {
+        const wantsEmail = window.confirm("You have submitted before. Do you want another email with your edit token?");
+        if (wantsEmail) {
+          try {
+            await api.requestTokenEmail(payload.owner_email);
+            alert("Email request processed!");
+          } catch (e) {
+            console.error("Failed to request email", e);
+            alert("Failed to request email.");
+          }
+        }
+      }
+
       setCreatedResult({
         id: res.id,
         token: res.raw_token,

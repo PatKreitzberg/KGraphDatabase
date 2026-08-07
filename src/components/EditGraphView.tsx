@@ -293,13 +293,35 @@ export const EditGraphView: React.FC<EditGraphViewProps> = ({
             Modifying existing structural matrices and metadata properties. All fields have been populated.
           </p>
         </div>
-        <button
-          onClick={onCancel}
-          type="button"
-          className="bg-white border border-black text-black text-xs font-bold uppercase tracking-widest px-4 py-2 hover:bg-neutral-100 transition-colors cursor-pointer rounded-none"
-        >
-          &larr; Cancel Editing
-        </button>
+        <div className="flex gap-2 mt-2 sm:mt-0">
+          <button
+            onClick={async () => {
+              const confirmText = window.prompt('Type "delete" to confirm graph deletion:');
+              if (confirmText === 'delete') {
+                try {
+                  await api.deleteGraph(graphId, editToken);
+                  alert('Graph deleted successfully.');
+                  onReturnToSearch();
+                } catch (err: any) {
+                  alert(err.message || 'Failed to delete graph.');
+                }
+              } else if (confirmText !== null) {
+                alert('Deletion cancelled. You did not type "delete".');
+              }
+            }}
+            type="button"
+            className="bg-red-600 border border-black text-white text-xs font-bold uppercase tracking-widest px-4 py-2 hover:bg-red-700 transition-colors cursor-pointer rounded-none"
+          >
+            Delete Graph
+          </button>
+          <button
+            onClick={onCancel}
+            type="button"
+            className="bg-white border border-black text-black text-xs font-bold uppercase tracking-widest px-4 py-2 hover:bg-neutral-100 transition-colors cursor-pointer rounded-none"
+          >
+            &larr; Cancel Editing
+          </button>
+        </div>
       </div>
 
       {step === 'input' && draftData && (

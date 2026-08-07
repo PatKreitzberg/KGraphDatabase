@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Search, Layers, FileCode, ExternalLink, HelpCircle, Download } from 'lucide-react';
+import { PlusCircle, Search, Layers, FileCode, ExternalLink, HelpCircle, Download, Key } from 'lucide-react';
+import { api } from './lib/api';
 import { AddGraphView } from './components/AddGraphView';
 import { SearchGraphView } from './components/SearchGraphView';
 import { GraphDetailView } from './components/GraphDetailView';
@@ -12,6 +13,26 @@ export default function App() {
   const [activeEditToken, setActiveEditToken] = useState<string | undefined>(undefined);
   const [editOrigin, setEditOrigin] = useState<'search' | 'detail'>('search');
   const [isAddGraphDirty, setIsAddGraphDirty] = useState<boolean>(false);
+  
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tokenEmail, setTokenEmail] = useState('');
+  const [tokenStatus, setTokenStatus] = useState<'idle'|'sending'|'sent'|'error'>('idle');
+
+  const handleRequestToken = async () => {
+    if (!tokenEmail || !tokenEmail.includes('@')) return;
+    setTokenStatus('sending');
+    try {
+      await api.requestTokenEmail(tokenEmail);
+      setTokenStatus('sent');
+      setTimeout(() => {
+        setShowTokenModal(false);
+        setTokenStatus('idle');
+        setTokenEmail('');
+      }, 3000);
+    } catch {
+      setTokenStatus('error');
+    }
+  };
 
   const activeTabRef = useRef(activeTab);
   const isAddGraphDirtyRef = useRef(isAddGraphDirty);
@@ -181,6 +202,15 @@ export default function App() {
               <Search className="w-3.5 h-3.5" />
               Search Registry
             </button>
+            
+            <button
+              onClick={() => setShowTokenModal(true)}
+              className="px-3 py-2 border border-black bg-white text-black hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Key className="w-3.5 h-3.5" />
+              Get My Edit Token
+            </button>
+
             <a
               href="/api/backup/download"
               download
@@ -200,6 +230,7 @@ export default function App() {
         
         <div className={activeTab === 'search' ? '' : 'hidden'}>
           <SearchGraphView
+            isActive={activeTab === 'search'}
             onSelectGraph={handleSelectGraph}
             onEditGraph={id => handleStartEdit(id, 'search')}
           />
@@ -247,6 +278,37 @@ export default function App() {
           />
         )}
       </main>
+
+      {showTokenModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold uppercase tracking-tight mb-2">Get My Edit Token</h3>
+            <p className="text-xs mb-4 text-neutral-600 font-mono">Enter your email address to receive your edit token. If you haven't added a graph with this email, you will be notified.</p>
+            <input 
+              type="email" 
+              value={tokenEmail} 
+              onChange={e => setTokenEmail(e.target.value)} 
+              placeholder="Email address"
+              className="w-full border border-black p-2 font-mono text-xs mb-4"
+            />
+            {tokenStatus === 'error' && <p className="text-red-600 text-xs font-bold mb-2">Error sending email.</p>}
+            {tokenStatus === 'sent' && <p className="text-emerald-600 text-xs font-bold mb-2">Email request processed!</p>}
+            <div className="flex gap-2 justify-end">
+              <button 
+                onClick={() => setShowTokenModal(false)}
+                className="px-4 py-2 border border-black text-xs font-bold uppercase hover:bg-neutral-100 cursor-pointer"
+              >Cancel</button>
+              <button 
+                onClick={handleRequestToken}
+                disabled={tokenStatus === 'sending'}
+                className="px-4 py-2 bg-black text-white text-xs font-bold uppercase hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+              >
+                {tokenStatus === 'sending' ? 'Sending...' : 'Send Token'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="px-8 py-4 border-t border-black bg-white flex flex-wrap justify-between items-center text-[9px] uppercase font-bold tracking-[0.2em] text-neutral-500 gap-4 mt-12">

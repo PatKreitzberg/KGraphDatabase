@@ -48,7 +48,7 @@ export const api = {
     return graphs.map(g => ({ properties: g.properties || {} }));
   },
 
-  createGraph: async (payload: any): Promise<{ success: boolean; id: string; raw_token: string }> => {
+  createGraph: async (payload: any): Promise<{ success: boolean; id: string; raw_token: string; is_existing_user?: boolean }> => {
     const res = await fetch(`${API_BASE}/graphs`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -61,7 +61,7 @@ export const api = {
       throw new Error(errMsg);
     }
     const data = await res.json();
-    return { success: data.success, id: data.graph.id, raw_token: data.raw_token };
+    return { success: data.success, id: data.graph.id, raw_token: data.raw_token, is_existing_user: data.is_existing_user };
   },
 
   updateGraph: async (payload: any): Promise<{ success: boolean; message?: string }> => {
@@ -85,6 +85,35 @@ export const api = {
       let errMsg = 'Failed to update graph';
       try { const errObj = JSON.parse(errText); if (errObj.error) errMsg = errObj.error; } catch {}
       throw new Error(errMsg);
+    }
+    return res.json();
+  },
+
+  deleteGraph: async (id: string, token: string): Promise<{ success: boolean }> => {
+    const res = await fetch(`${API_BASE}/graphs/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-edit-token': token
+      }
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      let errMsg = 'Failed to delete graph';
+      try { const errObj = JSON.parse(errText); if (errObj.error) errMsg = errObj.error; } catch {}
+      throw new Error(errMsg);
+    }
+    return res.json();
+  },
+
+  requestTokenEmail: async (email: string): Promise<{ success: boolean }> => {
+    const res = await fetch(`${API_BASE}/send-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    if (!res.ok) {
+      throw new Error('Failed to request token email');
     }
     return res.json();
   },

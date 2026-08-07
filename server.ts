@@ -270,8 +270,21 @@ app.post('/api/graphs', async (req, res) => {
       return res.status(400).json({ error: 'Graph must contain at least one vertex.' });
     }
 
-    const rawToken = 'tok_' + crypto.randomBytes(16).toString('hex');
-    const tokenHash = hashToken(rawToken);
+    const graphs = await readGraphs();
+    const existingGraph = graphs.find(g => g.owner_email === owner_email.trim());
+    
+    let rawToken, tokenHash, isNewUser;
+    
+    if (existingGraph && existingGraph.edit_token) {
+      rawToken = existingGraph.edit_token;
+      tokenHash = existingGraph.edit_token_hash;
+      isNewUser = false;
+    } else {
+      rawToken = 'tok_' + crypto.randomBytes(16).toString('hex');
+      tokenHash = hashToken(rawToken);
+      isNewUser = true;
+    }
+
     const id = 'graph-' + crypto.randomUUID().slice(0, 8);
 
     const newGraph: KGraph = {
@@ -289,13 +302,12 @@ app.post('/api/graphs', async (req, res) => {
       property_logs: []
     };
 
-    const graphs = await readGraphs();
     graphs.unshift(newGraph);
     await writeGraphs(graphs);
 
     const editUrl = `${req.get('origin') || req.protocol + '://' + req.get('host')}/edit?id=${id}&token=${rawToken}`;
 
-    if (resend) {
+    if (isNewUser && resend) {
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
@@ -320,7 +332,8 @@ app.post('/api/graphs', async (req, res) => {
       success: true,
       graph: newGraph,
       raw_token: rawToken,
-      edit_url: `/edit?id=${id}&token=${rawToken}`
+      edit_url: `/edit?id=${id}&token=${rawToken}`,
+      is_existing_user: !isNewUser
     });
   } catch (err) {
     res.status(500).json({ error: 'Failed to save graph' });
@@ -371,6 +384,35 @@ app.put('/api/graphs/:id', async (req, res) => {
     res.json({ success: true, graph: sanitized });
   } catch (err) {
     res.status(500).json({ error: 'Failed to update graph' });
+  }
+});
+
+// Delete graph (requires edit token)
+app.delete('/api/graphs/:id', async (req, res) => {
+  try {
+    const token = (req.headers['x-edit-token'] || req.body.edit_token || req.query.token) as string;
+
+    if (!token) {
+      return res.status(401).json({ error: 'Edit token required to delete graph.' });
+    }
+
+    const graphs = await readGraphs();
+    const index = graphs.findIndex(g => g.id === req.params.id);
+
+    if (index === -1) {
+      return res.status(404).json({ error: 'Graph not found.' });
+    }
+
+    if (hashToken(token) !== graphs[index].edit_token_hash) {
+      return res.status(403).json({ error: 'Invalid edit token for this graph.' });
+    }
+
+    graphs.splice(index, 1);
+    await writeGraphs(graphs);
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete graph' });
   }
 });
 
@@ -499,6 +541,41 @@ app.post('/api/graphs/:id/verify-token', async (req, res) => {
 
   const isValid = hashToken(token) === graph.edit_token_hash;
   res.json({ valid: isValid });
+});
+
+// Request token email endpoint
+app.post('/api/send-token', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ error: 'Valid email required' });
+    }
+    const graphs = await readGraphs();
+    const existingGraph = graphs.find(g => g.owner_email === email.trim());
+    
+    if (resend) {
+      if (existingGraph && existingGraph.edit_token) {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: email.trim(),
+          subject: 'Your K-Graph Database Edit Token',
+          html: `<p>You have previously submitted to the K-Graph Database.</p>
+                 <p>Your edit token is: <strong>${existingGraph.edit_token}</strong></p>
+                 <p>You can use this token to edit any of your graphs.</p>`
+        });
+      } else {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: email.trim(),
+          subject: 'Your K-Graph Database Edit Token Request',
+          html: `<p>You requested an edit token for the K-Graph Database, but this email address has not been used to add any graphs.</p>`
+        });
+      }
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process request' });
+  }
 });
 
 // Download backup of database and images
