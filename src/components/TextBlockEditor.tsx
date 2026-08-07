@@ -4,6 +4,8 @@ import { parseKGraphText } from '../lib/parser';
 import { TextParseResult } from '../types';
 
 interface TextBlockEditorProps {
+  mode: 'text' | 'file';
+  initialText?: string;
   onParsedSubmit: (result: TextParseResult) => void;
   onDirty?: () => void;
 }
@@ -32,7 +34,35 @@ e3 v1 v3
 e0 e3 ~ e2 e1
 `;
 
-export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, onParsedSubmit, onDirty }) => {
+const SAMPLE_PROPERTIES_TEXT_BLOCK = `# Vertices
+v1 v2 v3 v4
+
+# Color 1 Edges
+e1 v1 v2
+e2 v2 v3
+
+# Color 2 Edges
+f1 v1 v4
+f2 v4 v3
+
+# Commuting Squares
+e1 e2 ~ f1 f2
+
+# Properties
+Name: Example Graph with Properties
+Description: This is a complex example.
+Source Free
+Aperiodic
+
+# Tags
+Row-Finite, Rank-2 Basic
+
+# Homology
+H0 = Z^2
+H1 = Z + Z_3^2
+`;
+
+export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialText, onParsedSubmit, onDirty }) => {
   const [k, setK] = useState<number>(2);
   const [kInput, setKInput] = useState<string>('2');
   const [verticesText, setVerticesText] = useState<string>('');
@@ -40,8 +70,8 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
   const [squaresText, setSquaresText] = useState<string>('');
   const [cubesText, setCubesText] = useState<string>('');
 
-  const [showExample, setShowExample] = useState<boolean>(false);
-  const [parseResult, setParseResult] = useState<TextParseResult | null>(null);
+  const [fileUploaded, setFileUploaded] = useState<boolean>(false);
+  const [fileUploaded, setFileUploaded] = useState<boolean>(false);
 
   const combinedText = useMemo(() => {
     let text = `# Vertices\n${verticesText.trim()}\n\n`;
@@ -141,6 +171,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
     reader.onload = (evt) => {
       const content = evt.target?.result as string;
       if (content) {
+        setFileUploaded(true);
         loadFromTextBlock(content);
       }
     };
@@ -159,6 +190,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
       reader.onload = (evt) => {
         const content = evt.target?.result as string;
         if (content) {
+          setFileUploaded(true);
           loadFromTextBlock(content);
         }
       };
@@ -177,64 +209,51 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
   return (
     <form onSubmit={handleSubmit} className="space-y-6 font-sans">
       {/* Drag and Drop Zone */}
-      <div
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        className="border border-black bg-neutral-50 p-6 text-center transition-colors cursor-pointer relative hover:bg-neutral-100"
-      >
-        <input
-          type="file"
-          accept=".txt,.text"
-          onChange={handleFileUpload}
-          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-        />
-        <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
-          <Upload className="w-5 h-5 text-black" />
-          <p className="text-xs font-bold uppercase tracking-widest text-black">
-            Upload .txt block file or drag &amp; drop here
-          </p>
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500">
-            Supports standard k-graph block file format (# Vertices, # Color Edges, # Commuting Squares)
-          </p>
+      {mode === 'file' && (
+        <div
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+          className="border border-black bg-neutral-50 p-6 text-center transition-colors cursor-pointer relative hover:bg-neutral-100"
+        >
+          <input
+            type="file"
+            accept=".txt,.text"
+            onChange={handleFileUpload}
+            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+          />
+          <div className="flex flex-col items-center justify-center space-y-2 pointer-events-none">
+            <Upload className="w-5 h-5 text-black" />
+            <p className="text-xs font-bold uppercase tracking-widest text-black">
+              Upload .txt block file or drag &amp; drop here
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-neutral-500">
+              Supports standard k-graph block file format (# Vertices, # Color Edges, # Commuting Squares)
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Immutable Example Reference Box */}
-      {showExample && (
+      {mode === 'file' && !fileUploaded && (
         <div className="border border-black bg-[#fafafa] p-4 space-y-3 font-mono text-xs shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
           <div className="flex items-center justify-between border-b border-black pb-2">
             <span className="font-bold uppercase tracking-wider text-black text-xs flex items-center gap-1.5">
               <FileCode className="w-4 h-4 text-black" />
-              Immutable Example Reference
+              Immutable Example Reference (Supports Multiple Graphs via // New Graph)
             </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  loadFromTextBlock(SAMPLE_TEXT_BLOCK);
-                  setShowExample(false);
-                }}
-                className="text-xs font-bold uppercase tracking-wider border border-black bg-black text-white px-3 py-1 hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                Insert Example Data
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowExample(false)}
-                className="text-xs font-bold uppercase tracking-wider border border-black bg-white px-3 py-1 hover:bg-black hover:text-white transition-colors cursor-pointer"
-              >
-                Close ✕
-              </button>
-            </div>
           </div>
-          <pre className="bg-black text-white p-4 text-[11px] leading-relaxed overflow-x-auto select-text font-mono border border-black rounded-none">
-            <code>{SAMPLE_TEXT_BLOCK}</code>
+          <pre className="bg-black text-white p-4 text-[11px] leading-relaxed overflow-x-auto select-text font-mono border border-black rounded-none h-64 overflow-y-auto">
+            <code>
+              {`// Basic Example\n${SAMPLE_TEXT_BLOCK}\n// New Graph\n// Advanced Example\n${SAMPLE_PROPERTIES_TEXT_BLOCK}`}
+            </code>
           </pre>
         </div>
       )}
 
-      {/* Config Bar for Number of Colors (k) */}
-      <div className="border border-black bg-[#fafafa] p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+      {(mode === 'text' || (mode === 'file' && fileUploaded)) && (
+        <>
+          {/* Config Bar for Number of Colors (k) */}
+          <div className="border border-black bg-[#fafafa] p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-widest text-black mb-1 flex items-center gap-1.5">
@@ -283,13 +302,6 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
             Structured Section Entry
           </label>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowExample(!showExample)}
-              className="text-xs font-bold uppercase tracking-wider border border-black bg-white px-3 py-1 hover:bg-black hover:text-white transition-colors cursor-pointer"
-            >
-              {showExample ? 'Close Example' : 'See Example'}
-            </button>
             <button
               type="button"
               onClick={() => {
@@ -371,6 +383,8 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Parse Feedback Banner */}
       {parseResult && (
@@ -396,10 +410,9 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
                 Block parsed successfully!
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] text-neutral-600 mt-2 font-mono">
-                <div>Colors (k): <span className="font-bold text-black">{parseResult.graph?.k}</span></div>
-                <div>Vertices: <span className="font-bold text-black">{parseResult.graph?.vertices.length}</span></div>
-                <div>Commuting Squares: <span className="font-bold text-black">{parseResult.graph?.commuting_squares.length}</span></div>
-                <div>Commuting Cubes: <span className="font-bold text-black">{parseResult.graph?.commuting_cubes.length}</span></div>
+                <div>Graphs Detected: <span className="font-bold text-black">{parseResult.graphs?.length || 1}</span></div>
+                <div>Colors (k, first graph): <span className="font-bold text-black">{parseResult.graph?.k}</span></div>
+                <div>Vertices (first graph): <span className="font-bold text-black">{parseResult.graph?.vertices.length}</span></div>
               </div>
             </div>
           )}
@@ -427,7 +440,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ initialText, o
               : 'bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300'
           }`}
         >
-          Proceed with Parsed Graph Data
+          Proceed to properties step & save graph{parseResult?.graphs && parseResult.graphs.length > 1 ? 's' : ''}
         </button>
       </div>
     </form>

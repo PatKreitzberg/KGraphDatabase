@@ -81,6 +81,14 @@ export interface TextParseResult {
     commuting_cubes: CommutingPath[];
     properties: KGraphProperties;
   };
+  graphs?: {
+    k: number;
+    vertices: string[];
+    edges: Record<string, [string, string, string][]>;
+    commuting_squares: CommutingPath[];
+    commuting_cubes: CommutingPath[];
+    properties: KGraphProperties;
+  }[];
   errors: ParseError[];
   warnings: string[];
 }

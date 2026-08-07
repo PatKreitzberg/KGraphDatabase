@@ -1,6 +1,6 @@
 import { TextParseResult, CommutingPath, ParseError } from '../types';
 
-export function parseKGraphText(text: string): TextParseResult {
+function parseSingleGraphText(text: string): TextParseResult {
   const lines = text.split(/\r?\n/);
   const errors: ParseError[] = [];
   const warnings: string[] = [];
@@ -11,9 +11,10 @@ export function parseKGraphText(text: string): TextParseResult {
   const allEdgeIds = new Set<string>();
   const commutingSquares: CommutingPath[] = [];
   const commutingCubes: CommutingPath[] = [];
-  const properties: { name?: string; description?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string> } = {
+  const properties: { name?: string; description?: string; paper?: string; homology?: Record<string, string>; custom?: Record<string, string>; tags?: string[]; source_free?: boolean; sink_free?: boolean; aperiodic?: boolean; cofinal?: boolean; submitter_name?: string; contact_email?: string; } = {
     custom: {},
-    homology: {}
+    homology: {},
+    tags: []
   };
 
   let currentSection = '';
@@ -40,6 +41,10 @@ export function parseKGraphText(text: string): TextParseResult {
         currentSection = 'cubes';
       } else if (headerText.includes('propert')) {
         currentSection = 'properties';
+      } else if (headerText.includes('tag')) {
+        currentSection = 'tags';
+      } else if (headerText.includes('homolog')) {
+        currentSection = 'homology';
       } else if (headerText.includes('color') || headerText.includes('edge')) {
         currentSection = 'edges';
         // Extract color number/name
@@ -147,30 +152,62 @@ export function parseKGraphText(text: string): TextParseResult {
       } else {
         commutingCubes.push({ path_a: pathA, path_b: pathB });
       }
-    } else if (currentSection === 'properties') {
-      if (trimmed.toLowerCase().startsWith('homology')) {
-        // e.g. Homology groups: H0=0, H1=\mathbb{Z}
-        const valPart = trimmed.replace(/^homology\s*(groups)?:?\s*/i, '');
-        const items = valPart.split(/[,;]+/);
-        for (const item of items) {
-          const match = item.match(/(H\d+)\s*[:=]\s*(.+)/i);
-          if (match) {
-            properties.homology![match[1].toUpperCase()] = match[2].trim();
+    } else if (currentSection === 'tags') {
+      const tokens = trimmed.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+      for (const t of tokens) {
+         if (!properties.tags!.includes(t)) properties.tags!.push(t);
+      }
+    } else if (currentSection === 'homology') {
+      let norm = trimmed.replace(/\\cong/g, '=').replace(/\\oplus/g, '+').replace(/\\mathbb\{Z\}/gi, 'Z');
+      const match = norm.match(/(H\d+)\s*=\s*(.+)/i);
+      if (match) {
+        const degree = match[1].toUpperCase();
+        const rhs = match[2];
+        const terms = rhs.split('+').map(s => s.trim());
+        let freeExp = 0;
+        const torsionTerms: string[] = [];
+        
+        for (const term of terms) {
+          if (term === '0') continue;
+          const tMatch = term.match(/Z(?:_(\d+))?(?:\^(\d+))?(?:_(\d+))?/i);
+          if (tMatch) {
+            const sub1 = tMatch[1];
+            const exp = tMatch[2];
+            const sub2 = tMatch[3];
+            const sub = sub1 || sub2;
+            const expVal = exp ? parseInt(exp, 10) : 1;
+            if (sub) {
+              torsionTerms.push(`\\mathbb{Z}_{${parseInt(sub, 10)}}` + (expVal > 1 ? `^{${expVal}}` : ''));
+            } else {
+              freeExp += expVal;
+            }
           }
         }
-      } else if (trimmed.toLowerCase().startsWith('name:')) {
-        properties.name = trimmed.replace(/^name:\s*/i, '').trim();
-      } else if (trimmed.toLowerCase().startsWith('description:')) {
-        properties.description = trimmed.replace(/^description:\s*/i, '').trim();
-      } else if (trimmed.toLowerCase().startsWith('paper:')) {
-        properties.paper = trimmed.replace(/^paper:\s*/i, '').trim();
-      } else {
-        const colonIdx = trimmed.indexOf(':');
-        if (colonIdx > 0) {
-          const key = trimmed.slice(0, colonIdx).trim();
-          const val = trimmed.slice(colonIdx + 1).trim();
-          properties.custom![key] = val;
+        
+        const finalTerms: string[] = [];
+        if (freeExp > 0) {
+          finalTerms.push(freeExp === 1 ? '\\mathbb{Z}' : `\\mathbb{Z}^{${freeExp}}`);
         }
+        finalTerms.push(...torsionTerms);
+        properties.homology![degree] = finalTerms.length > 0 ? finalTerms.join(' \\oplus ') : '0';
+      }
+    } else if (currentSection === 'properties') {
+      const lower = trimmed.toLowerCase();
+      if (lower.includes('source free') || lower.includes('source-free')) properties.source_free = true;
+      if (lower.includes('sink free') || lower.includes('sink-free')) properties.sink_free = true;
+      if (lower.includes('aperiodic')) properties.aperiodic = true;
+      if (lower.includes('cofinal')) properties.cofinal = true;
+
+      const colonIdx = trimmed.indexOf(':');
+      if (colonIdx > 0) {
+        const key = trimmed.slice(0, colonIdx).trim();
+        const val = trimmed.slice(colonIdx + 1).trim();
+        if (key.toLowerCase() === 'name') properties.name = val;
+        else if (key.toLowerCase() === 'description') properties.description = val;
+        else if (key.toLowerCase() === 'paper') properties.paper = val;
+        else if (key.toLowerCase() === 'contributor') properties.submitter_name = val;
+        else if (key.toLowerCase() === 'contact') properties.contact_email = val;
+        else properties.custom![key] = val;
       }
     }
   }
@@ -206,6 +243,44 @@ export function parseKGraphText(text: string): TextParseResult {
     errors,
     warnings
   };
+}
+
+export function parseKGraphText(text: string): TextParseResult {
+  const blocks = text.split(/\/\/\s*new\s*graph/i);
+  
+  if (blocks.length > 1) {
+    const graphs = [];
+    const allErrors: ParseError[] = [];
+    const allWarnings: string[] = [];
+    let success = true;
+    for (let i = 0; i < blocks.length; i++) {
+       const blockTrimmed = blocks[i].trim();
+       if (!blockTrimmed) continue;
+       const blockRes = parseSingleGraphText(blockTrimmed);
+       
+       if (!blockRes.graph?.properties?.name) {
+         blockRes.errors.push({
+           message: "Graph Name is required for multiple graphs in a single file. (e.g. # Properties\\nName: Graph " + (i + 1) + ")"
+         });
+         blockRes.success = false;
+       }
+
+       if (blockRes.errors.length > 0) {
+         success = false;
+         allErrors.push(...blockRes.errors.map(e => ({ ...e, message: `[Graph ${i+1}] ${e.message}` })));
+       }
+       if (blockRes.warnings.length > 0) {
+         allWarnings.push(...blockRes.warnings.map(w => `[Graph ${i+1}] ${w}`));
+       }
+       if (blockRes.graph) {
+         graphs.push(blockRes.graph);
+       }
+    }
+    return { success, graph: graphs[0], graphs, errors: allErrors, warnings: allWarnings };
+  } else {
+    const res = parseSingleGraphText(text);
+    return { ...res, graphs: res.graph ? [res.graph] : [] };
+  }
 }
 
 export function formatKGraphToText(graph: {

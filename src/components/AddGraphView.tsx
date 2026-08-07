@@ -16,7 +16,6 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   const [entryMethod, setEntryMethod] = useState<'matrix' | 'text' | 'file'>('matrix');
   const [isModified, setIsModified] = useState<boolean>(false);
 
-  // Step 1: Draft Data state
   const [draftData, setDraftData] = useState<{
     k: number;
     vertices: string[];
@@ -24,6 +23,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
     commuting_squares: CommutingPath[];
     commuting_cubes: CommutingPath[];
   } | null>(null);
+  const [draftGraphs, setDraftGraphs] = useState<any[]>([]);
   const [draftText, setDraftText] = useState<string>('');
 
   // Step 2: Properties & Submitter Email state
@@ -152,7 +152,12 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   // Handler for Text / File parser completion
   const handleTextComplete = (res: TextParseResult, submittedText: string) => {
     setDraftText(submittedText);
-    if (res.graph) {
+    if (res.graphs && res.graphs.length > 1) {
+      setDraftGraphs(res.graphs);
+      setDraftData(res.graphs[0]);
+      setStep('properties');
+    } else if (res.graph) {
+      setDraftGraphs([res.graph]);
       setDraftData({
         k: res.graph.k,
         vertices: res.graph.vertices,
@@ -208,59 +213,85 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
     setUploadStatus('');
 
     try {
-      let uploadedImageUrl: string | undefined = undefined;
-      if (selectedImage) {
-        setUploadStatus('Uploading diagram image to storage...');
-        uploadedImageUrl = await api.uploadImage(selectedImage);
-        setUploadStatus('Saving graph record to database...');
-      }
+      let firstRes: any = null;
 
-      const payload = {
-        k: draftData.k,
-        vertices: draftData.vertices,
-        edges: draftData.edges,
-        commuting_squares: draftData.commuting_squares,
-        commuting_cubes: draftData.commuting_cubes,
-        owner_email: ownerEmail.trim(),
-        properties: {
-          name: graphName.trim() || undefined,
-          description: graphDescription.trim() || undefined,
-          paper: paperCitation.trim() || undefined,
-          submitter_name: submitterName.trim() || undefined,
-          contact_email: finalContactEmail || undefined,
-          image_url: uploadedImageUrl,
-          homology: homologyMap,
-          tags: customTags.length > 0 ? customTags : undefined,
-          source_free: sourceFree,
-          sink_free: sinkFree,
-          aperiodic: aperiodic,
-          cofinal: cofinal
+      if (draftGraphs.length > 1) {
+        setUploadStatus('Saving multiple graph records to database...');
+        for (let i = 0; i < draftGraphs.length; i++) {
+          const g = draftGraphs[i];
+          const res = await api.createGraph({
+            owner_email: ownerEmail.trim(),
+            k: g.k,
+            vertices: g.vertices,
+            edges: g.edges,
+            commuting_squares: g.commuting_squares,
+            commuting_cubes: g.commuting_cubes,
+            properties: {
+              ...g.properties,
+              submitter_name: submitterName.trim() || undefined,
+              contact_email: finalContactEmail || undefined
+            }
+          });
+          if (!res || !res.success) {
+            throw new Error(`Failed to create graph ${i + 1}`);
+          }
+          if (i === 0) firstRes = res;
         }
-      };
+      } else {
+        let uploadedImageUrl: string | undefined = undefined;
+        if (selectedImage) {
+          setUploadStatus('Uploading diagram image to storage...');
+          uploadedImageUrl = await api.uploadImage(selectedImage);
+          setUploadStatus('Saving graph record to database...');
+        }
 
-      const res = await api.createGraph({
-        owner_email: payload.owner_email,
-        k: payload.k,
-        vertices: payload.vertices,
-        edges: payload.edges,
-        commuting_squares: payload.commuting_squares,
-        commuting_cubes: payload.commuting_cubes,
-        properties: payload.properties
-      });
+        const payload = {
+          k: draftData.k,
+          vertices: draftData.vertices,
+          edges: draftData.edges,
+          commuting_squares: draftData.commuting_squares,
+          commuting_cubes: draftData.commuting_cubes,
+          owner_email: ownerEmail.trim(),
+          properties: {
+            name: graphName.trim() || undefined,
+            description: graphDescription.trim() || undefined,
+            paper: paperCitation.trim() || undefined,
+            submitter_name: submitterName.trim() || undefined,
+            contact_email: finalContactEmail || undefined,
+            image_url: uploadedImageUrl,
+            homology: homologyMap,
+            tags: customTags.length > 0 ? customTags : undefined,
+            source_free: sourceFree,
+            sink_free: sinkFree,
+            aperiodic: aperiodic,
+            cofinal: cofinal
+          }
+        };
 
-      if (!res || !res.success) {
-        throw new Error('Failed to create graph');
+        firstRes = await api.createGraph({
+          owner_email: payload.owner_email,
+          k: payload.k,
+          vertices: payload.vertices,
+          edges: payload.edges,
+          commuting_squares: payload.commuting_squares,
+          commuting_cubes: payload.commuting_cubes,
+          properties: payload.properties
+        });
+
+        if (!firstRes || !firstRes.success) {
+          throw new Error('Failed to create graph');
+        }
       }
 
-      if (res.is_existing_user) {
-        setExistingUserEmail(payload.owner_email);
+      if (firstRes.is_existing_user) {
+        setExistingUserEmail(ownerEmail.trim());
         setShowExistingUserModal(true);
       }
 
       setCreatedResult({
-        id: res.id,
-        token: res.raw_token,
-        editUrl: `${window.location.origin}/#edit/${res.id}?token=${res.raw_token}`
+        id: firstRes.id,
+        token: firstRes.raw_token,
+        editUrl: `${window.location.origin}/#edit/${firstRes.id}?token=${firstRes.raw_token}`
       });
       setStep('completed');
     } catch (err: any) {
@@ -338,6 +369,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
           )}
           {(entryMethod === 'text' || entryMethod === 'file') && (
             <TextBlockEditor
+              mode={entryMethod}
               initialText={draftText || (draftData ? draftToTextBlock(draftData) : '')}
               onDirty={() => setIsModified(true)}
               onParsedSubmit={handleTextComplete}
@@ -442,6 +474,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
             </div>
           </div>
 
+          {draftGraphs.length <= 1 && (
+            <>
           {/* SECTION 2: GRAPH INFORMATION */}
           <div className="border-t border-black pt-6 space-y-4">
             <div className="border-b border-black pb-2">
@@ -705,6 +739,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               )}
             </div>
           </div>
+          </>
+          )}
 
           {errorMessage && (
             <div className="p-4 bg-red-50 border border-black text-red-900 font-mono text-xs">
