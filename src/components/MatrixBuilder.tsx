@@ -325,14 +325,14 @@ export const MatrixBuilder: React.FC<MatrixBuilderProps> = ({
               setNumVerticesInput(valStr);
               onDirty?.();
               const valNum = parseInt(valStr, 10);
-              if (!isNaN(valNum) && valNum >= 2) {
+              if (!isNaN(valNum) && valNum >= 1) {
                 setNumVertices(valNum);
               }
             }}
             onBlur={() => {
-              if (!numVerticesInput || parseInt(numVerticesInput, 10) < 2) {
-                setNumVertices(2);
-                setNumVerticesInput('2');
+              if (!numVerticesInput || parseInt(numVerticesInput, 10) < 1) {
+                setNumVertices(1);
+                setNumVerticesInput('1');
               }
             }}
             onFocus={e => e.target.select()}
