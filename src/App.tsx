@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PlusCircle, Search, Layers, FileCode, ExternalLink, HelpCircle } from 'lucide-react';
+import { PlusCircle, Search, Layers, FileCode, ExternalLink, HelpCircle, Download } from 'lucide-react';
 import { AddGraphView } from './components/AddGraphView';
 import { SearchGraphView } from './components/SearchGraphView';
 import { GraphDetailView } from './components/GraphDetailView';
@@ -181,6 +181,15 @@ export default function App() {
               <Search className="w-3.5 h-3.5" />
               Search Registry
             </button>
+            <a
+              href="/api/backup/download"
+              download
+              className="px-3 py-2 border border-black bg-white text-black hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Download full backup of graphs.json and images"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Backup
+            </a>
           </nav>
         </div>
       </header>

@@ -6,6 +6,10 @@ import { KGraph, PropertyLog } from './src/types';
 import { parseKGraphText } from './src/lib/parser';
 import { Resend } from 'resend';
 import multer from 'multer';
+import cron from 'node-cron';
+import { ZipArchive } from 'archiver';
+
+let graphAddedSinceLastBackup = false;
 
 const uploadDir = path.join(process.cwd(), 'assets', 'uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -310,6 +314,8 @@ app.post('/api/graphs', async (req, res) => {
       }
     }
 
+    graphAddedSinceLastBackup = true;
+
     res.status(201).json({
       success: true,
       graph: newGraph,
@@ -493,6 +499,46 @@ app.post('/api/graphs/:id/verify-token', async (req, res) => {
 
   const isValid = hashToken(token) === graph.edit_token_hash;
   res.json({ valid: isValid });
+});
+
+// Download backup of database and images
+app.get('/api/backup/download', (req, res) => {
+  res.attachment('kgraphdb-backup.zip');
+  const archive = new ZipArchive({ zlib: { level: 9 } });
+  
+  archive.on('error', (err) => {
+    res.status(500).send({ error: err.message });
+  });
+
+  archive.pipe(res);
+  archive.file(DB_FILE, { name: 'graphs.json' });
+  archive.directory(uploadDir, 'assets/uploads');
+  archive.finalize();
+});
+
+// Midnight daily backup via email
+cron.schedule('0 0 * * *', async () => {
+  if (graphAddedSinceLastBackup) {
+    try {
+      const fileContent = fs.readFileSync(DB_FILE, 'utf8');
+      await resend.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        to: 'kreitzpa@gmail.com',
+        subject: 'K-Graph Database Daily Backup',
+        html: '<p>A new graph was added today! Here is your daily backup of graphs.json.</p>',
+        attachments: [
+          {
+            filename: 'graphs.json',
+            content: fileContent,
+          }
+        ]
+      });
+      graphAddedSinceLastBackup = false;
+      console.log('Daily backup email sent successfully.');
+    } catch (err) {
+      console.error('Failed to send daily backup:', err);
+    }
+  }
 });
 
 // Boot Vite middleware or static serving
