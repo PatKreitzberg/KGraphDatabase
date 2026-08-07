@@ -39,15 +39,18 @@ const FilterNumericInput: React.FC<FilterNumericInputProps> = ({ label, value, o
       } else {
         onChange(String(currentNum + 1));
       }
+    } else if (e.key.length === 1 && !/^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+    } else if (isAny && /^[0-9]$/.test(e.key)) {
+      e.preventDefault();
+      if (e.key !== '0') {
+        onChange(e.key);
+      }
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    if (raw.toLowerCase().includes('any') || raw.trim() === '') {
-      onChange('');
-      return;
-    }
     const digits = raw.replace(/\D/g, '');
     if (!digits || digits === '0') {
       onChange('');
@@ -78,6 +81,8 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
   const [kFilter, setKFilter] = useState<string>('');
   const [minVertices, setMinVertices] = useState<string>('');
   const [maxVertices, setMaxVertices] = useState<string>('');
+  const [exactVertices, setExactVertices] = useState<string>('');
+  const [useExactVertices, setUseExactVertices] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [useHomologyFilter, setUseHomologyFilter] = useState<boolean>(false);
   const [homologyFilterMap, setHomologyFilterMap] = useState<Record<string, string>>({});
@@ -104,17 +109,26 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
 
       let filtered: KGraph[] = data || [];
 
-      // Client-side filtering for vertices min/max
-      if (minVertices.trim()) {
-        const minV = parseInt(minVertices.trim(), 10);
-        if (!isNaN(minV)) {
-          filtered = filtered.filter(g => g.vertices.length >= minV);
+      // Client-side filtering for vertices min/max/exact
+      if (useExactVertices) {
+        if (exactVertices.trim()) {
+          const ev = parseInt(exactVertices.trim(), 10);
+          if (!isNaN(ev)) {
+            filtered = filtered.filter(g => g.vertices.length === ev);
+          }
         }
-      }
-      if (maxVertices.trim()) {
-        const maxV = parseInt(maxVertices.trim(), 10);
-        if (!isNaN(maxV)) {
-          filtered = filtered.filter(g => g.vertices.length <= maxV);
+      } else {
+        if (minVertices.trim()) {
+          const minV = parseInt(minVertices.trim(), 10);
+          if (!isNaN(minV)) {
+            filtered = filtered.filter(g => g.vertices.length >= minV);
+          }
+        }
+        if (maxVertices.trim()) {
+          const maxV = parseInt(maxVertices.trim(), 10);
+          if (!isNaN(maxV)) {
+            filtered = filtered.filter(g => g.vertices.length <= maxV);
+          }
         }
       }
 
@@ -182,7 +196,11 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
     if (isActive) {
       fetchGraphs();
     }
-  }, [isActive, kFilter, minVertices, maxVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
+  }, [isActive, kFilter, minVertices, maxVertices, exactVertices, useExactVertices, searchQuery, useHomologyFilter, homologyFilterMap, filterSourceFree, filterSinkFree, filterAperiodic, filterCofinal]);
+
+  const parsedMin = parseInt(minVertices, 10);
+  const parsedMax = parseInt(maxVertices, 10);
+  const isVertexRangeError = !useExactVertices && !isNaN(parsedMin) && !isNaN(parsedMax) && parsedMin > parsedMax;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 font-sans">
@@ -214,17 +232,42 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
             onChange={setKFilter}
           />
 
-          <FilterNumericInput
-            label="Min Vertices"
-            value={minVertices}
-            onChange={setMinVertices}
-          />
-
-          <FilterNumericInput
-            label="Max Vertices"
-            value={maxVertices}
-            onChange={setMaxVertices}
-          />
+          {useExactVertices ? (
+            <div className="col-span-1 sm:col-span-2 flex items-end gap-2">
+              <div className="flex-1">
+                <FilterNumericInput
+                  label="Exact Vertices"
+                  value={exactVertices}
+                  onChange={setExactVertices}
+                />
+              </div>
+              <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold uppercase tracking-widest text-black bg-neutral-100 px-2 h-[34px] border border-black hover:bg-neutral-200 transition-colors">
+                <input type="checkbox" checked={useExactVertices} onChange={e => setUseExactVertices(e.target.checked)} className="w-3 h-3 accent-black" />
+                Exact
+              </label>
+            </div>
+          ) : (
+            <>
+              <FilterNumericInput
+                label="Min Vertices"
+                value={minVertices}
+                onChange={setMinVertices}
+              />
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <FilterNumericInput
+                    label="Max Vertices"
+                    value={maxVertices}
+                    onChange={setMaxVertices}
+                  />
+                </div>
+                <label className="flex items-center gap-1.5 cursor-pointer text-[10px] font-bold uppercase tracking-widest text-black bg-neutral-100 px-2 h-[34px] border border-black hover:bg-neutral-200 transition-colors">
+                  <input type="checkbox" checked={useExactVertices} onChange={e => setUseExactVertices(e.target.checked)} className="w-3 h-3 accent-black" />
+                  Exact
+                </label>
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-neutral-500 font-bold uppercase text-[10px] tracking-widest mb-1">
@@ -290,32 +333,56 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
 
         {/* Toggle Homology Signature Search */}
         <div className="border-t border-black pt-3">
-          <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black text-xs tracking-wider">
-            <input
-              type="checkbox"
-              checked={useHomologyFilter}
-              onChange={e => setUseHomologyFilter(e.target.checked)}
-              className="accent-black"
-            />
-            Filter by Target Homology Signature
-          </label>
-
-          {useHomologyFilter && (
-            <div className="mt-3">
-              <HomologyEditor
-                initialHomology={homologyFilterMap}
-                onChange={setHomologyFilterMap}
-                title="Search Target Homology Signature"
+          <div className="flex flex-wrap items-start gap-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none font-bold uppercase text-black bg-white p-2 border border-black hover:bg-neutral-100 transition-colors font-mono text-xs w-fit">
+              <input
+                type="checkbox"
+                checked={useHomologyFilter}
+                onChange={e => setUseHomologyFilter(e.target.checked)}
+                className="w-4 h-4 accent-black"
               />
-            </div>
-          )}
+              Homology
+            </label>
+
+            {useHomologyFilter && (
+              <div className="flex-1">
+                <HomologyEditor
+                  initialHomology={homologyFilterMap}
+                  onChange={setHomologyFilterMap}
+                  title=""
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Clear Filters */}
+        <div className="border-t border-black pt-4 flex justify-start">
+          <button
+            onClick={() => {
+              setKFilter('');
+              setMinVertices('');
+              setMaxVertices('');
+              setExactVertices('');
+              setSearchQuery('');
+              setUseHomologyFilter(false);
+              setHomologyFilterMap({});
+              setFilterSourceFree(false);
+              setFilterSinkFree(false);
+              setFilterAperiodic(false);
+              setFilterCofinal(false);
+            }}
+            className="text-xs font-bold uppercase tracking-widest bg-white text-black border border-black px-4 py-2 hover:bg-neutral-100 transition-colors cursor-pointer"
+          >
+            Clear all filters
+          </button>
         </div>
       </div>
 
       {/* Results Header */}
       <div className="flex items-center justify-between font-mono text-xs uppercase tracking-widest">
         <span className="text-neutral-500 font-bold">
-          Found <strong className="text-black">{graphs.length}</strong> record(s)
+          Found <strong className="text-black">{graphs.length}</strong> k-graphs
         </span>
       </div>
 
@@ -324,21 +391,13 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
         <div className="p-8 text-center border border-black font-mono text-xs uppercase text-neutral-400">
           Searching graphs.json...
         </div>
+      ) : isVertexRangeError ? (
+        <div className="p-8 text-center border border-black font-mono text-xs text-red-500 space-y-2">
+          <p className="uppercase tracking-wider font-bold">Error: Min vertices cannot be greater than max vertices.</p>
+        </div>
       ) : graphs.length === 0 ? (
         <div className="p-8 text-center border border-black font-mono text-xs text-neutral-500 space-y-2">
-          <p className="uppercase tracking-wider">No matching k-graph records found.</p>
-          <button
-            onClick={() => {
-              setKFilter('');
-              setMinVertices('');
-              setMaxVertices('');
-              setSearchQuery('');
-              setUseHomologyFilter(false);
-            }}
-            className="text-black underline uppercase text-[11px] font-bold"
-          >
-            Clear all filters
-          </button>
+          <p className="uppercase tracking-wider">No matching k-graphs found.</p>
         </div>
       ) : (
         <div className="space-y-6">

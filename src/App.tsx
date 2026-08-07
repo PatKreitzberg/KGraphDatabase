@@ -145,8 +145,7 @@ export default function App() {
               }}
               className="text-2xl font-bold tracking-tighter uppercase text-black flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
-              <span className="bg-black text-white px-2 py-0.5 text-lg font-mono font-bold">K</span>
-              K-Graph Database
+              <span className="bg-black text-white px-2 py-0.5 text-lg font-mono font-bold">K-Graph Database</span>              
             </a>
             <span className="text-[10px] tracking-widest text-neutral-500 uppercase font-mono">
               Repository for Higher Rank Graphs

@@ -13,55 +13,74 @@ interface HomologyEditorProps {
 // Convert a LaTeX string back into terms if possible, or fallback to raw
 function parseLatexToRow(degree: string, latexStr: string): HomologyRow {
   if (!latexStr || latexStr.trim() === '0') {
-    return { degree, terms: [{ type: 'zero' }] };
+    return { degree, terms: [{ type: 'integer', exponent: 0 }] };
   }
 
   const parts = latexStr.split('\\oplus').map(s => s.trim());
   const terms: HomologyTerm[] = [];
+  let hasInteger = false;
 
   for (const part of parts) {
+    // Check torsion with subscript and optional exponent e.g. \mathbb{Z}_2 or \mathbb{Z}_{12}^3
+    const torMatch = part.match(/\\mathbb\{Z\}_(\{?(\d+)\}?)(\^\{?(\d+)\}?)?/);
     // Check integer with exponent e.g. \mathbb{Z}^3 or \mathbb{Z}
     const intMatch = part.match(/\\mathbb\{Z\}(\^\{?(\d+)\}?)?/);
-    // Check torsion with subscript e.g. \mathbb{Z}_2 or \mathbb{Z}_{12}
-    const torMatch = part.match(/\\mathbb\{Z\}_(\{?(\d+)\}?)/);
 
     if (torMatch && torMatch[2]) {
-      terms.push({ type: 'torsion', subscript: parseInt(torMatch[2], 10) });
+      const sub = parseInt(torMatch[2], 10);
+      const exp = torMatch[4] ? parseInt(torMatch[4], 10) : 1;
+      terms.push({ type: 'torsion', subscript: sub, exponent: exp });
     } else if (intMatch) {
       const exp = intMatch[2] ? parseInt(intMatch[2], 10) : 1;
       terms.push({ type: 'integer', exponent: exp });
+      hasInteger = true;
     } else if (part === '0') {
-      terms.push({ type: 'zero' });
+      // zero gets ignored here since we enforce a default structure later
     } else {
       // Fallback
-      terms.push({ type: 'integer', exponent: 1 });
+      if (part !== '') {
+        terms.push({ type: 'integer', exponent: 1 });
+        hasInteger = true;
+      }
     }
   }
 
-  return { degree, terms: terms.length > 0 ? terms : [{ type: 'zero' }] };
+  // Enforce exactly one integer term
+  const finalTerms = terms.filter(t => t.type === 'torsion');
+  const intTerm = terms.find(t => t.type === 'integer');
+  finalTerms.unshift(intTerm || { type: 'integer', exponent: 0 });
+
+  return { degree, terms: finalTerms };
 }
 
 function rowToLatex(row: HomologyRow): string {
-  if (row.terms.length === 0 || (row.terms.length === 1 && row.terms[0].type === 'zero')) {
-    return '0';
+  const intTerm = row.terms.find(t => t.type === 'integer');
+  const torTerms = row.terms.filter(t => t.type === 'torsion');
+
+  const rendered: string[] = [];
+
+  if (intTerm && intTerm.exponent && intTerm.exponent > 0) {
+    if (intTerm.exponent === 1) {
+      rendered.push('\\mathbb{Z}');
+    } else {
+      rendered.push(`\\mathbb{Z}^{${intTerm.exponent}}`);
+    }
   }
 
-  const nonZeroTerms = row.terms.filter(t => t.type !== 'zero');
-  if (nonZeroTerms.length === 0) return '0';
-
-  return nonZeroTerms
-    .map(t => {
-      if (t.type === 'integer') {
-        const exp = t.exponent ?? 1;
-        if (exp === 1) return '\\mathbb{Z}';
-        return `\\mathbb{Z}^{${exp}}`;
-      } else if (t.type === 'torsion') {
-        const sub = t.subscript ?? 2;
-        return `\\mathbb{Z}_{${sub}}`;
+  for (const t of torTerms) {
+    const sub = t.subscript ?? 2;
+    const exp = t.exponent ?? 1;
+    if (exp > 0) {
+      if (exp === 1) {
+        rendered.push(`\\mathbb{Z}_{${sub}}`);
+      } else {
+        rendered.push(`\\mathbb{Z}_{${sub}}^{${exp}}`);
       }
-      return '0';
-    })
-    .join(' \\oplus ');
+    }
+  }
+
+  if (rendered.length === 0) return '0';
+  return rendered.join(' \\oplus ');
 }
 
 export const HomologyEditor: React.FC<HomologyEditorProps> = ({
@@ -87,37 +106,36 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
 
   const addRow = () => {
     const nextDegree = `H${rows.length}`;
-    setRows([...rows, { degree: nextDegree, terms: [{ type: 'zero' }] }]);
+    setRows([...rows, { degree: nextDegree, terms: [{ type: 'integer', exponent: 0 }] }]);
   };
 
   const removeRow = (index: number) => {
     setRows(rows.filter((_, i) => i !== index));
   };
 
-  const addIntegerGroup = (rowIndex: number) => {
-    const updated = [...rows];
-    const terms = updated[rowIndex].terms.filter(t => t.type !== 'zero');
-    terms.push({ type: 'integer', exponent: 1 });
-    updated[rowIndex].terms = terms;
-    setRows(updated);
-  };
-
   const addTorsionGroup = (rowIndex: number) => {
     const updated = [...rows];
-    const terms = updated[rowIndex].terms.filter(t => t.type !== 'zero');
-    terms.push({ type: 'torsion', subscript: 2 });
-    updated[rowIndex].terms = terms;
+    updated[rowIndex].terms.push({ type: 'torsion', subscript: 2, exponent: 1 });
     setRows(updated);
   };
 
-  const updateTermValue = (rowIndex: number, termIndex: number, rawVal: string | number) => {
-    const rawStr = String(rawVal).replace(/\D/g, '');
-    const val = rawStr === '' ? 1 : Math.max(1, parseInt(rawStr, 10));
+  const updateTermField = (rowIndex: number, termIndex: number, field: 'exponent' | 'subscript', rawVal: string | number) => {
     const updated = [...rows];
     const term = updated[rowIndex].terms[termIndex];
-    if (term.type === 'integer') {
+
+    const rawStr = String(rawVal).replace(/\D/g, '');
+    let val = 0;
+    
+    // For integer exponent, we allow 0. For torsion subscript/exponent, min is 1.
+    if (field === 'exponent' && term.type === 'integer') {
+       val = rawStr === '' ? 0 : parseInt(rawStr, 10);
+    } else {
+       val = rawStr === '' ? 1 : Math.max(1, parseInt(rawStr, 10));
+    }
+
+    if (field === 'exponent') {
       term.exponent = val;
-    } else if (term.type === 'torsion') {
+    } else if (field === 'subscript' && term.type === 'torsion') {
       term.subscript = val;
     }
     setRows(updated);
@@ -126,24 +144,23 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
   const removeTerm = (rowIndex: number, termIndex: number) => {
     const updated = [...rows];
     updated[rowIndex].terms = updated[rowIndex].terms.filter((_, i) => i !== termIndex);
-    if (updated[rowIndex].terms.length === 0) {
-      updated[rowIndex].terms = [{ type: 'zero' }];
-    }
     setRows(updated);
   };
 
   const resetRowToZero = (rowIndex: number) => {
     const updated = [...rows];
-    updated[rowIndex].terms = [{ type: 'zero' }];
+    updated[rowIndex].terms = [{ type: 'integer', exponent: 0 }];
     setRows(updated);
   };
 
   return (
-    <div className="border border-black bg-white p-6 rounded-none font-sans space-y-4">
-      <div className={`flex flex-wrap items-center justify-between gap-2 ${rows.length > 0 ? 'pb-3 border-b border-black' : ''}`}>
-        <div>
-          <h3 className="font-bold text-xs uppercase tracking-widest text-black">{title}</h3>
-        </div>
+    <div className={`font-sans space-y-4 ${title ? 'border border-black bg-white p-6 rounded-none' : ''}`}>
+      <div className={`flex flex-wrap items-center gap-2 ${rows.length > 0 && title ? 'pb-3 border-b border-black' : ''} ${title ? 'justify-between' : ''}`}>
+        {title && (
+          <div>
+            <h3 className="font-bold text-xs uppercase tracking-widest text-black">{title}</h3>
+          </div>
+        )}
         {!readOnly && (
           <button
             type="button"
@@ -151,7 +168,7 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
             className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest border border-black bg-black text-white hover:bg-neutral-800 px-3 py-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Homology Group
+            Add Next Homology Group
           </button>
         )}
       </div>
@@ -164,23 +181,13 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
               <div key={row.degree + rIdx} className="p-4 border border-black bg-[#fafafa]">
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
                   <div className="flex items-center gap-3">
-                    <span className="font-serif italic text-lg font-bold">
-                      {row.degree}
-                    </span>
-                    <div className="text-base px-3 py-1 bg-white border border-black min-w-[120px]">
+                    <div className="text-base min-w-[120px]">
                       <MathView math={`${row.degree} \\cong ${currentLatex}`} />
                     </div>
                   </div>
 
                   {!readOnly && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => addIntegerGroup(rIdx)}
-                        className="text-[10px] font-bold uppercase tracking-widest border border-black bg-white hover:bg-black hover:text-white px-2.5 py-1 text-black transition-colors"
-                      >
-                        + <MathView math="\mathbb{Z}^n" />
-                      </button>
                       <button
                         type="button"
                         onClick={() => addTorsionGroup(rIdx)}
@@ -209,43 +216,75 @@ export const HomologyEditor: React.FC<HomologyEditorProps> = ({
                 </div>
 
               {/* Term Controls */}
-              {!readOnly && row.terms.length > 0 && row.terms[0].type !== 'zero' && (
-                <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-neutral-300">
-                  <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Direct Sum Terms:</span>
-                  {row.terms.map((term, tIdx) => (
-                    <div
-                      key={tIdx}
-                      className="flex items-center gap-1.5 bg-white border border-black px-2 py-1 text-xs"
-                    >
-                      <MathView
-                        math={
-                          term.type === 'integer'
-                            ? `\\mathbb{Z}^{${term.exponent || 1}}`
-                            : `\\mathbb{Z}_{${term.subscript || 2}}`
-                        }
-                      />
-                      <label className="text-[10px] text-neutral-500 font-mono">
-                        {term.type === 'integer' ? 'exp:' : 'tors:'}
-                      </label>
+              {!readOnly && row.terms.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-neutral-300">
+                  {/* Free term */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Free term:</span>
+                    <div className="flex items-center gap-1.5 bg-white border border-black px-2 py-1 text-xs">
+                      <MathView math={`\\mathbb{Z}^{${row.terms[0].exponent ?? 0}}`} />
+                      <label className="text-[10px] text-neutral-500 font-mono ml-1">exp:</label>
                       <input
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={term.type === 'integer' ? term.exponent ?? 1 : term.subscript ?? 2}
+                        value={row.terms[0].exponent ?? 0}
                         onFocus={e => e.target.select()}
                         onClick={e => (e.target as HTMLInputElement).select()}
-                        onChange={e => updateTermValue(rIdx, tIdx, e.target.value)}
-                        className="w-16 border border-black px-1 py-0.5 text-center font-mono text-xs focus:border-black focus:outline-none rounded-none"
+                        onChange={e => updateTermField(rIdx, 0, 'exponent', e.target.value)}
+                        className="w-10 border border-black px-1 py-0.5 text-center font-mono text-xs focus:border-black focus:outline-none rounded-none"
                       />
-                      <button
-                        type="button"
-                        onClick={() => removeTerm(rIdx, tIdx)}
-                        className="text-neutral-400 hover:text-black font-bold ml-1 text-xs"
-                      >
-                        ✕
-                      </button>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Torsion terms */}
+                  {row.terms.length > 1 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest ml-2">Torsion terms:</span>
+                      {row.terms.slice(1).map((term, tIdxOffset) => {
+                        const tIdx = tIdxOffset + 1;
+                        return (
+                          <div
+                            key={tIdx}
+                            className="flex items-center gap-1.5 bg-white border border-black px-2 py-1 text-xs"
+                          >
+                            <MathView
+                              math={`\\mathbb{Z}_{${term.subscript ?? 2}}^{${term.exponent ?? 1}}`}
+                            />
+                            <label className="text-[10px] text-neutral-500 font-mono ml-1">sub:</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={term.subscript ?? 2}
+                              onFocus={e => e.target.select()}
+                              onClick={e => (e.target as HTMLInputElement).select()}
+                              onChange={e => updateTermField(rIdx, tIdx, 'subscript', e.target.value)}
+                              className="w-10 border border-black px-1 py-0.5 text-center font-mono text-xs focus:border-black focus:outline-none rounded-none"
+                            />
+                            <label className="text-[10px] text-neutral-500 font-mono ml-1">exp:</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={term.exponent ?? 1}
+                              onFocus={e => e.target.select()}
+                              onClick={e => (e.target as HTMLInputElement).select()}
+                              onChange={e => updateTermField(rIdx, tIdx, 'exponent', e.target.value)}
+                              className="w-10 border border-black px-1 py-0.5 text-center font-mono text-xs focus:border-black focus:outline-none rounded-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeTerm(rIdx, tIdx)}
+                              className="text-neutral-400 hover:text-black font-bold ml-1 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
