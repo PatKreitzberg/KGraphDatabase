@@ -6,33 +6,15 @@ import { SearchGraphView } from './components/SearchGraphView';
 import { GraphDetailView } from './components/GraphDetailView';
 import { EditGraphView } from './components/EditGraphView';
 import { EditTokenVerifyView } from './components/EditTokenVerifyView';
+import { MyGraphsView } from './components/MyGraphsView';
+import { LandingView } from './components/LandingView';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'add' | 'search' | 'detail' | 'verify_token' | 'edit_form'>('search');
+  const [activeTab, setActiveTab] = useState<'home' | 'add' | 'search' | 'detail' | 'verify_token' | 'edit_form' | 'my_graphs'>('home');
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [activeEditToken, setActiveEditToken] = useState<string | undefined>(undefined);
   const [editOrigin, setEditOrigin] = useState<'search' | 'detail'>('search');
   const [isAddGraphDirty, setIsAddGraphDirty] = useState<boolean>(false);
-  
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [tokenEmail, setTokenEmail] = useState('');
-  const [tokenStatus, setTokenStatus] = useState<'idle'|'sending'|'sent'|'error'>('idle');
-
-  const handleRequestToken = async () => {
-    if (!tokenEmail || !tokenEmail.includes('@')) return;
-    setTokenStatus('sending');
-    try {
-      await api.requestTokenEmail(tokenEmail);
-      setTokenStatus('sent');
-      setTimeout(() => {
-        setShowTokenModal(false);
-        setTokenStatus('idle');
-        setTokenEmail('');
-      }, 3000);
-    } catch {
-      setTokenStatus('error');
-    }
-  };
 
   const activeTabRef = useRef(activeTab);
   const isAddGraphDirtyRef = useRef(isAddGraphDirty);
@@ -91,8 +73,12 @@ export default function App() {
         setActiveTab('detail');
       } else if (hash === 'add') {
         setActiveTab('add');
-      } else {
+      } else if (hash === 'my_graphs') {
+        setActiveTab('my_graphs');
+      } else if (hash === 'search') {
         setActiveTab('search');
+      } else {
+        setActiveTab('home');
       }
     };
 
@@ -148,14 +134,14 @@ export default function App() {
           {/* Logo & Title */}
           <div className="flex flex-col">
             <a
-              href="#search"
+              href="#home"
               onClick={(e) => {
                 if (!confirmLeaveAddGraph()) {
                   e.preventDefault();
                   return;
                 }
-                setActiveTab('search');
-                window.location.hash = 'search';
+                setActiveTab('home');
+                window.location.hash = 'home';
               }}
               className="text-2xl font-bold tracking-tighter uppercase text-black flex items-center gap-2 hover:opacity-80 transition-opacity"
             >
@@ -169,21 +155,6 @@ export default function App() {
 
           {/* Navigation Controls */}
           <nav className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-widest">
-            <button
-              onClick={() => {
-                setActiveTab('add');
-                window.location.hash = 'add';
-              }}
-              className={`px-3 py-2 border border-black transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'add'
-                  ? 'bg-black text-white font-bold'
-                  : 'bg-white text-black hover:bg-neutral-100'
-              }`}
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              Add Graph
-            </button>
-
             <button
               onClick={(e) => {
                 if (!confirmLeaveAddGraph()) {
@@ -202,13 +173,39 @@ export default function App() {
               <Search className="w-3.5 h-3.5" />
               Search Registry
             </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('add');
+                window.location.hash = 'add';
+              }}
+              className={`px-3 py-2 border border-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'add'
+                  ? 'bg-black text-white font-bold'
+                  : 'bg-white text-black hover:bg-neutral-100'
+              }`}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              Add Graph
+            </button>
             
             <button
-              onClick={() => setShowTokenModal(true)}
-              className="px-3 py-2 border border-black bg-white text-black hover:bg-neutral-100 transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={(e) => {
+                if (!confirmLeaveAddGraph()) {
+                  e.preventDefault();
+                  return;
+                }
+                setActiveTab('my_graphs');
+                window.location.hash = 'my_graphs';
+              }}
+              className={`px-3 py-2 border border-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'my_graphs'
+                  ? 'bg-black text-white font-bold'
+                  : 'bg-white text-black hover:bg-neutral-100'
+              }`}
             >
               <Key className="w-3.5 h-3.5" />
-              Get My Edit Token
+              Edit My Graphs
             </button>
 
             <a
@@ -226,8 +223,22 @@ export default function App() {
 
       {/* Main Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6">
+        {activeTab === 'home' && <LandingView />}
+
         {activeTab === 'add' && <AddGraphView onGraphSaved={handleGraphSaved} onDirtyChange={setIsAddGraphDirty} />}
         
+        {activeTab === 'my_graphs' && (
+          <MyGraphsView
+            onSelectGraph={handleSelectGraph}
+            onEditGraph={(id, token) => {
+              setSelectedGraphId(id);
+              setActiveEditToken(token);
+              setActiveTab('edit_form');
+              window.location.hash = `edit/${id}?token=${token}`;
+            }}
+          />
+        )}
+
         <div className={activeTab === 'search' ? '' : 'hidden'}>
           <SearchGraphView
             isActive={activeTab === 'search'}
@@ -278,37 +289,6 @@ export default function App() {
           />
         )}
       </main>
-
-      {showTokenModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold uppercase tracking-tight mb-2">Get My Edit Token</h3>
-            <p className="text-xs mb-4 text-neutral-600 font-mono">Enter your email address to receive your edit token. If you haven't added a graph with this email, you will be notified.</p>
-            <input 
-              type="email" 
-              value={tokenEmail} 
-              onChange={e => setTokenEmail(e.target.value)} 
-              placeholder="Email address"
-              className="w-full border border-black p-2 font-mono text-xs mb-4"
-            />
-            {tokenStatus === 'error' && <p className="text-red-600 text-xs font-bold mb-2">Error sending email.</p>}
-            {tokenStatus === 'sent' && <p className="text-emerald-600 text-xs font-bold mb-2">Email request processed!</p>}
-            <div className="flex gap-2 justify-end">
-              <button 
-                onClick={() => setShowTokenModal(false)}
-                className="px-4 py-2 border border-black text-xs font-bold uppercase hover:bg-neutral-100 cursor-pointer"
-              >Cancel</button>
-              <button 
-                onClick={handleRequestToken}
-                disabled={tokenStatus === 'sending'}
-                className="px-4 py-2 bg-black text-white text-xs font-bold uppercase hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
-              >
-                {tokenStatus === 'sending' ? 'Sending...' : 'Send Token'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="px-8 py-4 border-t border-black bg-white flex flex-wrap justify-between items-center text-[9px] uppercase font-bold tracking-[0.2em] text-neutral-500 gap-4 mt-12">

@@ -578,6 +578,25 @@ app.post('/api/send-token', async (req, res) => {
   }
 });
 
+// Get user's graphs by token
+app.get('/api/my-graphs', async (req, res) => {
+  const token = req.headers['x-edit-token'] as string;
+  if (!token) {
+    return res.status(401).json({ error: 'Token is required' });
+  }
+  try {
+    const tokenHash = hashToken(token);
+    const graphs = await readGraphs();
+    const myGraphs = graphs.filter(g => g.edit_token_hash === tokenHash).map(g => {
+      const { edit_token, ...sanitized } = g;
+      return sanitized;
+    });
+    res.json(myGraphs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch your graphs' });
+  }
+});
+
 // Download backup of database and images
 app.get('/api/backup/download', (req, res) => {
   res.attachment('kgraphdb-backup.zip');

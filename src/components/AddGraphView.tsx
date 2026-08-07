@@ -45,6 +45,10 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
+  const [showExistingUserModal, setShowExistingUserModal] = useState<boolean>(false);
+  const [existingUserEmail, setExistingUserEmail] = useState<string>('');
+  const [emailRequestStatus, setEmailRequestStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
   useEffect(() => {
     const dirty = (step !== 'completed') && (
       isModified ||
@@ -249,16 +253,8 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
       }
 
       if (res.is_existing_user) {
-        const wantsEmail = window.confirm("You have submitted before. Do you want another email with your edit token?");
-        if (wantsEmail) {
-          try {
-            await api.requestTokenEmail(payload.owner_email);
-            alert("Email request processed!");
-          } catch (e) {
-            console.error("Failed to request email", e);
-            alert("Failed to request email.");
-          }
-        }
+        setExistingUserEmail(payload.owner_email);
+        setShowExistingUserModal(true);
       }
 
       setCreatedResult({
@@ -803,6 +799,52 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
             >
               Add Another Graph
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Existing User Modal */}
+      {showExistingUserModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold uppercase tracking-tight mb-2">Previous Submitter Detected</h3>
+            <p className="text-xs mb-4 text-neutral-600 font-mono">
+              You have submitted before. Do you want another email with your edit token?
+            </p>
+            {emailRequestStatus === 'error' && <p className="text-red-600 text-xs font-bold mb-4">Error sending email.</p>}
+            {emailRequestStatus === 'sent' && <p className="text-emerald-600 text-xs font-bold mb-4">Email request processed!</p>}
+            <div className="flex gap-2 justify-end">
+              <button 
+                onClick={() => {
+                  setShowExistingUserModal(false);
+                  setEmailRequestStatus('idle');
+                }}
+                disabled={emailRequestStatus === 'sending'}
+                className="px-4 py-2 border border-black text-xs font-bold uppercase hover:bg-neutral-100 disabled:opacity-50 cursor-pointer"
+              >
+                No
+              </button>
+              <button 
+                onClick={async () => {
+                  if (emailRequestStatus === 'sent') return;
+                  setEmailRequestStatus('sending');
+                  try {
+                    await api.requestTokenEmail(existingUserEmail);
+                    setEmailRequestStatus('sent');
+                    setTimeout(() => {
+                      setShowExistingUserModal(false);
+                      setEmailRequestStatus('idle');
+                    }, 2000);
+                  } catch (e) {
+                    setEmailRequestStatus('error');
+                  }
+                }}
+                disabled={emailRequestStatus === 'sending' || emailRequestStatus === 'sent'}
+                className="px-4 py-2 bg-black text-white text-xs font-bold uppercase hover:bg-neutral-800 disabled:opacity-50 cursor-pointer"
+              >
+                {emailRequestStatus === 'sending' ? 'Sending...' : emailRequestStatus === 'sent' ? 'Sent' : 'Yes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

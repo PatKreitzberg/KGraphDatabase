@@ -26,6 +26,14 @@ export const api = {
     }
   },
 
+  getMyGraphs: async (token: string): Promise<KGraph[]> => {
+    const res = await fetch(`${API_BASE}/my-graphs`, {
+      headers: { 'x-edit-token': token }
+    });
+    if (!res.ok) throw new Error('Failed to fetch your graphs');
+    return res.json();
+  },
+
   getGraphById: async (id: string): Promise<KGraph | null> => {
     try {
       const res = await fetch(`${API_BASE}/graphs/${encodeURIComponent(id)}`);
