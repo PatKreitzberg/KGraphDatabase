@@ -4,7 +4,7 @@ import { KGraph, SearchFilters } from '../types';
 import { MathView } from './MathView';
 import { HomologyEditor } from './HomologyEditor';
 import { KGraphVisualizer } from './KGraphVisualizer';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 interface SearchGraphViewProps {
   onSelectGraph: (graphId: string) => void;
@@ -91,17 +91,15 @@ export const SearchGraphView: React.FC<SearchGraphViewProps> = ({ onSelectGraph,
   const fetchGraphs = async () => {
     setIsLoading(true);
     try {
-      let query = supabase.from('graphs').select('*');
-
+      let kVal: number | undefined = undefined;
       if (kFilter.trim()) {
-        const kVal = parseInt(kFilter.trim(), 10);
-        if (!isNaN(kVal)) {
-          query = query.eq('k', kVal);
+        const parsed = parseInt(kFilter.trim(), 10);
+        if (!isNaN(parsed)) {
+          kVal = parsed;
         }
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      const data = await api.getGraphs(kVal);
 
       let filtered: KGraph[] = data || [];
 

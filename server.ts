@@ -2,17 +2,36 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { createServer as createViteServer } from 'vite';
 import { KGraph, PropertyLog } from './src/types';
 import { parseKGraphText } from './src/lib/parser';
+import { Resend } from 'resend';
+import multer from 'multer';
+
+const uploadDir = path.join(process.cwd(), 'assets', 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, 'img-' + Date.now() + '-' + Math.round(Math.random() * 1E9) + ext);
+  }
+});
+const upload = multer({ storage });
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const DB_FILE = fs.existsSync(path.join(__dirname, 'graphs.json'))
-  ? path.join(__dirname, 'graphs.json')
+const PORT = process.env.PORT || 3000;
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const DB_FILE = fs.existsSync(path.join(process.cwd(), 'graphs.json'))
+  ? path.join(process.cwd(), 'graphs.json')
   : path.join(process.cwd(), 'graphs.json');
 
 app.use(express.json({ limit: '10mb' }));
+app.use('/assets', express.static(path.join(process.cwd(), 'assets')));
 
 // Lock file mechanism / atomic write wrapper for graphs.json
 async function readGraphs(): Promise<KGraph[]> {
@@ -145,6 +164,14 @@ function getInitialSeedData(): KGraph[] {
 }
 
 // REST API Routes
+app.post('/api/upload', upload.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ success: false, error: 'No file uploaded' });
+  }
+  const publicUrl = `/assets/uploads/${req.file.filename}`;
+  res.json({ success: true, publicUrl });
+});
+
 app.get('/api/graphs', async (req, res) => {
   try {
     const graphs = await readGraphs();
@@ -261,6 +288,27 @@ app.post('/api/graphs', async (req, res) => {
     const graphs = await readGraphs();
     graphs.unshift(newGraph);
     await writeGraphs(graphs);
+
+    const editUrl = `${req.get('origin') || req.protocol + '://' + req.get('host')}/edit?id=${id}&token=${rawToken}`;
+
+    if (resend) {
+      try {
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          to: owner_email.trim(),
+          subject: 'Your K-Graph Database Edit Link',
+          html: `
+            <p>Thank you for submitting to the K-Graph Database!</p>
+            <p>You can edit your submission anytime using this private link:</p>
+            <p><a href="${editUrl}">${editUrl}</a></p>
+            <p>Or manually enter your edit token: <strong>${rawToken}</strong></p>
+            <p><br/>Please keep this link safe and do not share it.</p>
+          `
+        });
+      } catch (err) {
+        console.error('Failed to send email:', err);
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -449,22 +497,23 @@ app.post('/api/graphs/:id/verify-token', async (req, res) => {
 
 // Boot Vite middleware or static serving
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.USE_VITE_DEV_SERVER === 'true') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = __dirname;
+    const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`K-Graph database server running at http://0.0.0.0:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`K-Graph database server running on port/socket ${PORT}`);
   });
 }
 

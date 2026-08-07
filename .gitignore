@@ -8,3 +8,6 @@ coverage/
 !.env.example
 *.zip
 *~
+server.js
+graphs.json
+assets/uploads/

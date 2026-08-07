@@ -6,24 +6,27 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --target=node18 --packages=external --outfile=server.js",
+    "build:deploy": "npm run build && npm run build:server && rm -f deploy.zip && zip -r deploy.zip dist server.js package.json package-lock.json",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
-    "@supabase/supabase-js": "^2.112.0",
-    "@tailwindcss/vite": "^4.1.14",
-    "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "multer": "^2.2.0",
+    "resend": "^6.18.1"
+  },
+  "devDependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/multer": "^2.2.0",
+    "@vitejs/plugin-react": "^5.0.4",
     "katex": "^0.18.1",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
-    "vite": "^6.2.3"
-  },
-  "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/katex": "^0.16.8",
     "@types/node": "^22.14.0",

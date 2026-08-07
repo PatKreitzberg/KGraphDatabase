@@ -15,7 +15,7 @@ import { KGraph } from '../types';
 import { MathView } from './MathView';
 import { KGraphVisualizer } from './KGraphVisualizer';
 import { formatKGraphToText } from '../lib/parser';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 interface GraphDetailViewProps {
   graphId: string;
@@ -59,16 +59,14 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
     setDisputeError('');
 
     try {
-      const { data, error } = await supabase.rpc('add_graph_dispute', {
+      const res = await api.addDispute({
         target_id: graphId,
         comment: disputeComment.trim(),
         author_email: disputeAuthorEmail.trim() || null,
         property_name: disputeProperty
       });
 
-      if (error) throw error;
-
-      if (data && data.success) {
+      if (res && res.success) {
         await fetchGraph();
         setShowDisputeModal(false);
         setDisputeComment('');
@@ -91,13 +89,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
     if (!graphId) return;
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('graphs')
-        .select('*')
-        .eq('id', graphId)
-        .single();
-
-      if (error) throw error;
+      const data = await api.getGraphById(graphId);
 
       if (data) {
         setGraph(data as KGraph);
@@ -120,7 +112,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
 
     setIsSubmittingProperty(true);
     try {
-      const { data, error } = await supabase.rpc('add_graph_property', {
+      const res = await api.addProperty({
         target_id: graphId,
         prop_key: appendKey.trim(),
         prop_value: appendValue.trim(),
@@ -128,9 +120,7 @@ export const GraphDetailView: React.FC<GraphDetailViewProps> = ({
         is_homology: isAppendHomology
       });
 
-      if (error) throw error;
-
-      if (data && data.success) {
+      if (res && res.success) {
         await fetchGraph();
         setShowAppendModal(false);
         setAppendKey('H2');

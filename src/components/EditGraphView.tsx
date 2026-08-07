@@ -1,20 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Layers, FileText, Upload, CheckCircle, Copy, Link, Mail, ArrowLeft, Send, Image as ImageIcon, X } from 'lucide-react';
+import { Layers, FileText, Upload, CheckCircle, ArrowLeft, Send, Image as ImageIcon, X, Loader2, Eye, Search } from 'lucide-react';
 import { MatrixBuilder } from './MatrixBuilder';
 import { TextBlockEditor } from './TextBlockEditor';
 import { HomologyEditor } from './HomologyEditor';
-import { TextParseResult, KGraphProperties, CommutingPath } from '../types';
+import { TextParseResult, KGraphProperties, CommutingPath, KGraph } from '../types';
 import { api } from '../lib/api';
 import { draftToTextBlock } from '../lib/parser';
 
-interface AddGraphViewProps {
-  onGraphSaved: (graphId: string, token: string) => void;
-  onDirtyChange?: (isDirty: boolean) => void;
+interface EditGraphViewProps {
+  graphId: string;
+  editToken: string;
+  onViewGraph: (graphId: string) => void;
+  onReturnToSearch: () => void;
+  onCancel: () => void;
 }
 
-export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirtyChange }) => {
+export const EditGraphView: React.FC<EditGraphViewProps> = ({
+  graphId,
+  editToken,
+  onViewGraph,
+  onReturnToSearch,
+  onCancel
+}) => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string>('');
   const [entryMethod, setEntryMethod] = useState<'matrix' | 'text' | 'file'>('matrix');
-  const [isModified, setIsModified] = useState<boolean>(false);
 
   // Step 1: Draft Data state
   const [draftData, setDraftData] = useState<{
@@ -26,15 +36,13 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   } | null>(null);
   const [draftText, setDraftText] = useState<string>('');
 
-  // Step 2: Properties & Submitter Email state
+  // Step 2: Properties & Metadata state
   const [step, setStep] = useState<'input' | 'properties' | 'completed'>('input');
   const [graphName, setGraphName] = useState('');
   const [graphDescription, setGraphDescription] = useState('');
   const [paperCitation, setPaperCitation] = useState('');
   const [homologyMap, setHomologyMap] = useState<Record<string, string>>({});
-  const [ownerEmail, setOwnerEmail] = useState('');
   const [contactEmail, setContactEmail] = useState('');
-  const [sameAsEdit, setSameAsEdit] = useState(false);
   const [submitterName, setSubmitterName] = useState('');
   const [sourceFree, setSourceFree] = useState(false);
   const [sinkFree, setSinkFree] = useState(false);
@@ -45,36 +53,63 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
   const [existingTags, setExistingTags] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
 
-  useEffect(() => {
-    const dirty = (step !== 'completed') && (
-      isModified ||
-      step === 'properties' ||
-      graphName !== '' ||
-      graphDescription !== '' ||
-      paperCitation !== '' ||
-      ownerEmail !== '' ||
-      contactEmail !== '' ||
-      submitterName !== '' ||
-      sourceFree ||
-      sinkFree ||
-      aperiodic ||
-      cofinal ||
-      customTags.length > 0 ||
-      Object.keys(homologyMap).length > 0
-    );
-    onDirtyChange?.(dirty);
-  }, [isModified, step, graphName, graphDescription, paperCitation, ownerEmail, contactEmail, submitterName, sourceFree, sinkFree, aperiodic, cofinal, customTags, homologyMap, onDirtyChange]);
+  // Image states
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
+  // Load initial graph data
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (step !== 'completed' && (isModified || step === 'properties')) {
-        e.preventDefault();
-        e.returnValue = '';
+    const fetchGraphToEdit = async () => {
+      setLoading(true);
+      setFetchError('');
+      try {
+        const data = await api.getGraphById(graphId);
+
+        if (!data) {
+          throw new Error('Could not load graph record from database.');
+        }
+
+        const g = data as KGraph;
+        const draftObj = {
+          k: g.k,
+          vertices: g.vertices || [],
+          edges: g.edges || {},
+          commuting_squares: g.commuting_squares || [],
+          commuting_cubes: g.commuting_cubes || []
+        };
+        setDraftData(draftObj);
+        setDraftText(draftToTextBlock(draftObj));
+
+        const props = g.properties || {};
+        setGraphName(props.name || '');
+        setGraphDescription(props.description || '');
+        setPaperCitation(props.paper || '');
+        setHomologyMap(props.homology || {});
+        setSubmitterName(props.submitter_name || '');
+        setContactEmail(props.contact_email || '');
+        setSourceFree(!!props.source_free);
+        setSinkFree(!!props.sink_free);
+        setAperiodic(!!props.aperiodic);
+        setCofinal(!!props.cofinal);
+        setCustomTags(props.tags && Array.isArray(props.tags) ? props.tags : []);
+        
+        if (props.image_url) {
+          setExistingImageUrl(props.image_url);
+          setImagePreview(props.image_url);
+        }
+      } catch (err: any) {
+        setFetchError(err.message || 'Failed to fetch graph details.');
+      } finally {
+        setLoading(false);
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [step, isModified]);
+
+    fetchGraphToEdit();
+  }, [graphId]);
 
   useEffect(() => {
     if (step === 'properties') {
@@ -97,11 +132,6 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
       fetchTags();
     }
   }, [step]);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -114,17 +144,12 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
 
   const handleRemoveImage = () => {
     setSelectedImage(null);
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setExistingImageUrl(null);
+    if (imagePreview && imagePreview.startsWith('blob:')) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImagePreview(null);
   };
-
-  // Result state
-  const [createdResult, setCreatedResult] = useState<{
-    id: string;
-    token: string;
-    editUrl: string;
-  } | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Handler for Matrix Builder submission
   const handleMatrixComplete = (data: {
@@ -156,130 +181,128 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
         commuting_squares: res.graph.commuting_squares,
         commuting_cubes: res.graph.commuting_cubes
       });
-
-      if (res.graph.properties?.name) setGraphName(res.graph.properties.name);
-      if (res.graph.properties?.description) setGraphDescription(res.graph.properties.description);
-      if (res.graph.properties?.paper) setPaperCitation(res.graph.properties.paper);
-      if (res.graph.properties?.submitter_name) setSubmitterName(res.graph.properties.submitter_name);
-      if (res.graph.properties?.contact_email) {
-        setOwnerEmail(res.graph.properties.contact_email);
-        setContactEmail(res.graph.properties.contact_email);
-        setSameAsEdit(true);
+      if (res.graph.properties) {
+        if (res.graph.properties.name) setGraphName(res.graph.properties.name);
+        if (res.graph.properties.description) setGraphDescription(res.graph.properties.description);
+        if (res.graph.properties.paper) setPaperCitation(res.graph.properties.paper);
+        if (res.graph.properties.homology) setHomologyMap(res.graph.properties.homology);
       }
-      if (res.graph.properties?.homology) setHomologyMap(res.graph.properties.homology);
-      if (res.graph.properties?.tags) setCustomTags(res.graph.properties.tags);
-      if (res.graph.properties?.source_free !== undefined) setSourceFree(!!res.graph.properties.source_free);
-      if (res.graph.properties?.sink_free !== undefined) setSinkFree(!!res.graph.properties.sink_free);
-      if (res.graph.properties?.aperiodic !== undefined) setAperiodic(!!res.graph.properties.aperiodic);
-      if (res.graph.properties?.cofinal !== undefined) setCofinal(!!res.graph.properties.cofinal);
-
       setStep('properties');
     }
   };
 
-  // Final Save handler
-  const handleFinalSubmit = async (e: React.FormEvent) => {
+  const handleSaveEdits = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!draftData) return;
+    if (!draftData || !graphName.trim()) {
+      setErrorMessage('Please provide a valid graph structure and name.');
+      return;
+    }
 
     if (!submitterName.trim()) {
-      setErrorMessage('Please enter your contributor name (Required).');
+      setErrorMessage('Please provide your name as contributor.');
       return;
     }
-
-    if (!ownerEmail || !ownerEmail.includes('@')) {
-      setErrorMessage('Please enter a valid email address for edit token delivery (Required).');
-      return;
-    }
-
-    if (!graphName.trim()) {
-      setErrorMessage('Please enter a graph name (Required).');
-      return;
-    }
-
-    const finalContactEmail = sameAsEdit ? ownerEmail.trim() : contactEmail.trim();
 
     setIsSubmitting(true);
     setErrorMessage('');
     setUploadStatus('');
 
     try {
-      let uploadedImageUrl: string | undefined = undefined;
+      let finalImageUrl = existingImageUrl;
       if (selectedImage) {
         setUploadStatus('Uploading diagram image to storage...');
-        uploadedImageUrl = await api.uploadImage(selectedImage);
-        setUploadStatus('Saving graph record to database...');
+        finalImageUrl = await api.uploadImage(selectedImage);
+        setUploadStatus('Saving graph updates to database...');
       }
 
-      const payload = {
-        k: draftData.k,
-        vertices: draftData.vertices,
-        edges: draftData.edges,
-        commuting_squares: draftData.commuting_squares,
-        commuting_cubes: draftData.commuting_cubes,
-        owner_email: ownerEmail.trim(),
-        properties: {
-          name: graphName.trim() || undefined,
-          description: graphDescription.trim() || undefined,
-          paper: paperCitation.trim() || undefined,
-          submitter_name: submitterName.trim() || undefined,
-          contact_email: finalContactEmail || undefined,
-          image_url: uploadedImageUrl,
-          homology: homologyMap,
-          tags: customTags.length > 0 ? customTags : undefined,
-          source_free: sourceFree,
-          sink_free: sinkFree,
-          aperiodic: aperiodic,
-          cofinal: cofinal
-        }
+      const updatedProperties = {
+        name: graphName.trim() || undefined,
+        description: graphDescription.trim() || undefined,
+        paper: paperCitation.trim() || undefined,
+        submitter_name: submitterName.trim() || undefined,
+        contact_email: contactEmail.trim() || undefined,
+        image_url: finalImageUrl || undefined,
+        homology: homologyMap,
+        tags: customTags.length > 0 ? customTags : undefined,
+        source_free: sourceFree,
+        sink_free: sinkFree,
+        aperiodic: aperiodic,
+        cofinal: cofinal
       };
 
-      const res = await api.createGraph({
-        owner_email: payload.owner_email,
-        k: payload.k,
-        vertices: payload.vertices,
-        edges: payload.edges,
-        commuting_squares: payload.commuting_squares,
-        commuting_cubes: payload.commuting_cubes,
-        properties: payload.properties
+      const res = await api.updateGraph({
+        target_id: graphId,
+        token: editToken,
+        updated_k: draftData.k,
+        updated_vertices: draftData.vertices,
+        updated_edges: draftData.edges,
+        updated_squares: draftData.commuting_squares,
+        updated_cubes: draftData.commuting_cubes,
+        updated_properties: updatedProperties
       });
 
       if (!res || !res.success) {
-        throw new Error('Failed to create graph');
+        throw new Error(res?.message || 'Failed to update graph. Invalid token or missing permissions.');
       }
 
-      setCreatedResult({
-        id: res.id,
-        token: res.raw_token,
-        editUrl: `${window.location.origin}/#edit/${res.id}?token=${res.raw_token}`
-      });
       setStep('completed');
     } catch (err: any) {
-      setErrorMessage(err.message || 'An error occurred while saving the graph.');
+      setErrorMessage(err.message || 'An error occurred while saving updates to the graph.');
     } finally {
       setIsSubmitting(false);
       setUploadStatus('');
     }
   };
 
-  const handleCopyLink = () => {
-    if (!createdResult) return;
-    navigator.clipboard.writeText(createdResult.editUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto p-12 text-center font-mono space-y-4 border border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+        <Loader2 className="w-8 h-8 animate-spin mx-auto text-black" />
+        <p className="text-sm font-bold uppercase tracking-wider text-black">Loading existing graph structure for editing...</p>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="max-w-4xl mx-auto p-8 border border-red-700 bg-red-50 text-red-900 font-mono space-y-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+        <h3 className="text-base font-bold uppercase tracking-widest">Error Loading Graph</h3>
+        <p className="text-xs">{fetchError}</p>
+        <button
+          onClick={onCancel}
+          className="bg-black text-white px-4 py-2 font-bold text-xs uppercase tracking-widest hover:bg-neutral-800 transition-colors cursor-pointer rounded-none"
+        >
+          &larr; Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 font-sans">
       {/* Title Header */}
-      <div className="border-b border-black pb-4">
-        <h2 className="text-xl font-bold uppercase tracking-tight text-black">Submit New k-Graph</h2>
-        <p className="text-xs text-neutral-600 mt-1 uppercase tracking-wider">
-          Construct higher-rank graph architectures via adjacency matrices, block syntax, or plain text uploads.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black pb-4">
+        <div>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-widest bg-amber-200 text-amber-950 px-2 py-0.5 border border-amber-400 mr-2">
+            Edit Mode Activated
+          </span>
+          <h2 className="text-xl font-bold uppercase tracking-tight text-black inline-block mt-2 sm:mt-0">
+            Edit k-Graph: {graphName || `Graph ${graphId}`}
+          </h2>
+          <p className="text-xs text-neutral-600 mt-1 uppercase tracking-wider font-mono">
+            Modifying existing structural matrices and metadata properties. All fields have been populated.
+          </p>
+        </div>
+        <button
+          onClick={onCancel}
+          type="button"
+          className="bg-white border border-black text-black text-xs font-bold uppercase tracking-widest px-4 py-2 hover:bg-neutral-100 transition-colors cursor-pointer rounded-none"
+        >
+          &larr; Cancel Editing
+        </button>
       </div>
 
-      {step === 'input' && (
+      {step === 'input' && draftData && (
         <div className="space-y-6">
           {/* Entry Method Selector */}
           <div className="grid grid-cols-1 md:grid-cols-3 border border-black bg-neutral-100 text-xs font-bold uppercase tracking-wider">
@@ -301,7 +324,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               }`}
             >
               <FileText className="w-4 h-4" />
-              2. Manual Text Block
+              2. Block Syntax Editor
             </button>
             <button
               type="button"
@@ -311,53 +334,42 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               }`}
             >
               <Upload className="w-4 h-4" />
-              3. .txt File Upload
+              3. Text File Parser
             </button>
           </div>
 
-          {/* Render Active Entry Mode */}
-          {entryMethod === 'matrix' && (
-            <MatrixBuilder
-              initialK={draftData?.k}
-              initialVertices={draftData?.vertices}
-              initialEdges={draftData?.edges}
-              initialSquares={draftData?.commuting_squares}
-              initialCubes={draftData?.commuting_cubes}
-              onDirty={() => setIsModified(true)}
-              onMatrixSubmit={handleMatrixComplete}
-            />
-          )}
-          {(entryMethod === 'text' || entryMethod === 'file') && (
-            <TextBlockEditor
-              initialText={draftText || (draftData ? draftToTextBlock(draftData) : '')}
-              onDirty={() => setIsModified(true)}
-              onParsedSubmit={handleTextComplete}
-            />
-          )}
+          <div className="border border-black bg-white p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+            {entryMethod === 'matrix' ? (
+              <MatrixBuilder
+                initialK={draftData.k}
+                initialVertices={draftData.vertices}
+                initialEdges={draftData.edges}
+                initialSquares={draftData.commuting_squares}
+                initialCubes={draftData.commuting_cubes}
+                onMatrixSubmit={handleMatrixComplete}
+              />
+            ) : (
+              <div className="space-y-4">
+                <p className="font-mono text-xs text-neutral-600">
+                  Note: Switching to Block Syntax or Text File Parser allows you to overwrite the graph structure completely using raw text syntax.
+                </p>
+                <TextBlockEditor
+                  initialText={draftText || (draftData ? draftToTextBlock(draftData) : '')}
+                  onParsedSubmit={handleTextComplete}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {step === 'properties' && draftData && (
-        <form onSubmit={handleFinalSubmit} className="space-y-6 border border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-          <div className="flex items-center justify-between border-b border-black pb-3">
-            <button
-              type="button"
-              onClick={() => setStep('input')}
-              className="text-xs font-bold uppercase tracking-wider text-black hover:bg-black hover:text-white flex items-center gap-1 border border-black px-3 py-1 transition-colors">
-
-              <ArrowLeft className="w-3.5 h-3.5" /> Back
-            </button>
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">Step 2 of 2</span>
-            </div>
-
-          </div>
-
+        <form onSubmit={handleSaveEdits} className="border border-black bg-white p-6 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-8">
           {/* SECTION 1: CONTRIBUTOR INFORMATION */}
           <div className="space-y-4">
             <div className="border-b border-black pb-2">
               <h4 className="text-xs font-bold uppercase tracking-widest text-black">1. Contributor Information</h4>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Contributor identification and edit token delivery details</p>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Your authorship identification and contact details</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -376,55 +388,17 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            <div className="grid grid-cols-1 gap-4 pt-1">
               <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1 flex items-center gap-1.5">
-                  <Mail className="w-4 h-4 text-black" />
-                  Edit Token Email Address (Required) <span className="text-red-600">*</span>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-black mb-1">
+                  Public Contact Email (Optional)
                 </label>
                 <input
                   type="email"
-                  required
-                  value={ownerEmail}
-                  onChange={e => {
-                    setOwnerEmail(e.target.value);
-                    if (sameAsEdit) setContactEmail(e.target.value);
-                  }}
-                  placeholder="researcher@university.edu"
-                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
-                />
-                <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
-                  Email address to which the edit token will be sent and associated.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-black flex items-center gap-1.5">
-                    <Mail className="w-4 h-4 text-black" />
-                    Public Contact Email (Optional)
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-neutral-700 select-none">
-                    <input
-                      type="checkbox"
-                      checked={sameAsEdit}
-                      onChange={e => {
-                        const checked = e.target.checked;
-                        setSameAsEdit(checked);
-                        if (checked) setContactEmail(ownerEmail);
-                      }}
-                      className="w-3.5 h-3.5 accent-black"
-                    />
-                    Same as edit email
-                  </label>
-                </div>
-                <input
-                  type="email"
-                  disabled={sameAsEdit}
-                  value={sameAsEdit ? ownerEmail : contactEmail}
+                  value={contactEmail}
                   onChange={e => setContactEmail(e.target.value)}
                   placeholder="public.contact@university.edu"
-                  className="w-full font-mono text-xs border border-black p-2.5 bg-white disabled:bg-neutral-100 disabled:text-neutral-600 focus:border-black focus:outline-none rounded-none transition-colors"
+                  className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
                 <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
                   Displayed publicly on the graph record as a contact address.
@@ -468,9 +442,6 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
                   placeholder="Provide a brief description of the graph, its mathematical significance, or construction details..."
                   className="w-full font-mono text-xs border border-black p-2.5 focus:border-black focus:outline-none rounded-none transition-colors"
                 />
-                <p className="text-[10px] text-neutral-500 mt-1 uppercase tracking-wider">
-                  Summary description explaining properties, motivations, or mathematical context of this graph.
-                </p>
               </div>
             </div>
 
@@ -500,10 +471,9 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
             {/* Basic Information */}
             <div>
               <div className="bg-[#fafafa] border border-black p-4 font-mono text-xs grid grid-cols-2 md:grid-cols-4 gap-2">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
-                Basic Information 
-              </span>
-
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-black col-span-2 md:col-span-4 mb-1">
+                  Basic Information 
+                </span>
                 <div>Colors (k): <span className="font-bold text-black">{draftData.k}</span></div>
                 <div>Vertices: <span className="font-bold text-black">{draftData.vertices.length}</span></div>
                 <div>Commuting Squares: <span className="font-bold text-black">{draftData.commuting_squares.length}</span></div>
@@ -573,9 +543,6 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
               <span className="block text-[11px] font-bold uppercase tracking-wider text-black">
                 Custom Tags &amp; Classifications (Optional)
               </span>
-              <p className="text-[10px] text-neutral-500 uppercase tracking-wider">
-                Add additional custom properties or descriptive tags (e.g., &quot;Row-Finite&quot;, &quot;Rank-3 Basic&quot;). Press Enter or click Add Tag to attach.
-              </p>
               <div className="relative">
                 <div className="flex items-center gap-2">
                   <input
@@ -668,7 +635,6 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
                 <label className="border border-dashed border-black bg-[#fafafa] p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-neutral-100 transition-colors">
                   <Upload className="w-6 h-6 text-neutral-600" />
                   <span className="text-xs font-bold uppercase tracking-wider text-black">Click to select an image (.PNG, .JPG, .SVG)</span>
-                  <span className="text-[10px] uppercase tracking-wider text-neutral-500">Image will be hosted securely on server storage</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -680,115 +646,106 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
                 <div className="border border-black bg-[#fafafa] p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <img src={imagePreview} alt="Graph preview" className="w-20 h-20 object-contain border border-neutral-300 bg-white" />
-                    <div>
-                      <div className="text-xs font-mono font-bold text-black">{selectedImage?.name}</div>
-                      <div className="text-[10px] font-mono text-neutral-500">{selectedImage ? Math.round(selectedImage.size / 1024) + ' KB' : ''}</div>
+                    <div className="font-mono">
+                      <span className="block text-xs font-bold text-black uppercase">
+                        {selectedImage ? selectedImage.name : 'Existing Diagram Attached'}
+                      </span>
+                      {selectedImage && (
+                        <span className="block text-[10px] text-neutral-600">
+                          {(selectedImage.size / 1024).toFixed(1)} KB - Ready for Upload
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveImage}
-                    className="text-xs font-bold uppercase tracking-wider bg-black text-white px-3 py-2 hover:bg-red-700 transition-colors flex items-center gap-1 cursor-pointer rounded-none"
-                  >
-                    <X className="w-3.5 h-3.5" /> Remove Image
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <label className="bg-white border border-black px-3 py-1.5 font-bold text-[10px] uppercase tracking-wider text-black hover:bg-neutral-100 transition-colors cursor-pointer rounded-none">
+                      Replace Image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="bg-neutral-200 border border-black p-1.5 hover:bg-red-600 hover:text-white transition-colors text-black rounded-none cursor-pointer"
+                      title="Remove Image"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {errorMessage && (
-            <div className="p-4 bg-red-50 border border-black text-red-900 font-mono text-xs">
-              {errorMessage}
+            <div className="border border-red-700 bg-red-100 text-red-900 px-4 py-3 font-mono text-xs uppercase font-bold">
+              Error: {errorMessage}
             </div>
           )}
 
-          <div>
+          {uploadStatus && (
+            <div className="border border-blue-700 bg-blue-50 text-blue-950 px-4 py-3 font-mono text-xs uppercase font-bold flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {uploadStatus}
+            </div>
+          )}
+
+          <div className="flex justify-between items-center border-t border-black pt-6">
+            <button
+              type="button"
+              onClick={() => setStep('input')}
+              disabled={isSubmitting}
+              className="flex items-center gap-2 bg-white border border-black px-6 py-3 font-bold text-xs uppercase tracking-widest text-black hover:bg-neutral-100 transition-colors rounded-none cursor-pointer disabled:opacity-50"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back: Edit Structure
+            </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-black text-white text-xs font-bold uppercase tracking-widest py-4 px-4 hover:bg-neutral-800 transition-colors cursor-pointer flex items-center justify-center gap-2 rounded-none"
+              className="flex items-center gap-2 bg-black text-white px-8 py-3 font-bold text-xs uppercase tracking-widest hover:bg-neutral-800 transition-colors rounded-none cursor-pointer disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
-              {isSubmitting ? (uploadStatus || 'Saving Graph Record...') : 'Validate & Save'}
+              {isSubmitting ? 'Saving Updates...' : 'Save Graph Updates'}
             </button>
           </div>
         </form>
       )}
 
-      {step === 'completed' && createdResult && (
-        <div className="border border-black p-6 bg-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] space-y-4 text-xs font-sans">
-          <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm uppercase tracking-wider">
-            <CheckCircle className="w-5 h-5 text-emerald-600" />
-            Graph Successfully Stored in Database!
+      {step === 'completed' && (
+        <div className="border border-black bg-white p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] space-y-6 text-center font-mono">
+          <div className="inline-flex p-3 bg-emerald-100 border border-emerald-500 rounded-full text-emerald-700">
+            <CheckCircle className="w-10 h-10" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold uppercase tracking-tight text-black font-sans">
+              Graph Successfully Updated!
+            </h3>
+            <p className="text-xs text-neutral-600 max-w-md mx-auto">
+              Your modifications to graph <span className="font-bold text-black">{graphName}</span> have been permanently recorded and verified in the registry.
+            </p>
           </div>
 
-          <div className="bg-[#fafafa] border border-black p-4 space-y-3 font-mono">
-            <div>
-              <span className="text-neutral-500 block uppercase text-[10px]">Assigned Graph ID:</span>
-              <span className="font-bold text-black text-sm">{createdResult.id}</span>
-            </div>
-
-            <div>
-              <span className="text-neutral-500 block uppercase text-[10px]">Raw Edit Token:</span>
-              <span className="font-bold text-black bg-white px-2 py-0.5 border border-black">
-                {createdResult.token}
-              </span>
-            </div>
-
-            <div>
-              <span className="text-neutral-500 block uppercase text-[10px] mb-1">Direct Structure Edit Link:</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={createdResult.editUrl}
-                  className="flex-1 border border-black p-2 bg-white font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="bg-black text-white px-4 py-2 font-bold uppercase tracking-wider flex items-center gap-1.5 hover:bg-neutral-800 transition-colors cursor-pointer rounded-none"
-                >
-                  <Copy className="w-4 h-4" />
-                  {copiedLink ? 'Copied!' : 'Copy Link'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="pt-6 border-t border-black flex flex-wrap items-center justify-center gap-4">
             <button
-              onClick={() => onGraphSaved(createdResult.id, createdResult.token)}
-              className="bg-black text-white font-bold uppercase tracking-wider px-4 py-3 hover:bg-neutral-800 transition-colors rounded-none"
+              type="button"
+              onClick={() => onViewGraph(graphId)}
+              className="flex items-center gap-2 bg-black text-white px-6 py-3 font-bold text-xs uppercase tracking-widest hover:bg-neutral-800 transition-colors rounded-none cursor-pointer"
             >
-              View Graph Details &amp; Visualizer
+              <Eye className="w-4 h-4" />
+              View Updated Graph
             </button>
             <button
-              onClick={() => {
-                setStep('input');
-                setDraftData(null);
-                setGraphName('');
-                setGraphDescription('');
-                setPaperCitation('');
-                setSubmitterName('');
-                setOwnerEmail('');
-                setContactEmail('');
-                setSameAsEdit(false);
-                setHomologyMap({});
-                setCustomTags([]);
-                setNewTagInput('');
-                setCreatedResult(null);
-                setSourceFree(false);
-                setSinkFree(false);
-                setAperiodic(false);
-                setCofinal(false);
-                setIsModified(false);
-                handleRemoveImage();
-              }}
-              className="border border-black px-4 py-3 font-bold uppercase tracking-wider hover:bg-black hover:text-white transition-colors rounded-none"
+              type="button"
+              onClick={onReturnToSearch}
+              className="flex items-center gap-2 bg-white border border-black text-black px-6 py-3 font-bold text-xs uppercase tracking-widest hover:bg-neutral-100 transition-colors rounded-none cursor-pointer"
             >
-              Add Another Graph
+              <Search className="w-4 h-4" />
+              Return to Search Registry
             </button>
           </div>
         </div>

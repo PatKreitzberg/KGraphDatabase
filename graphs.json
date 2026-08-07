@@ -1,5 +1,21 @@
 [
   {
+    "id": "graph-4ec15497",
+    "edit_token_hash": "4c1cd18a7021b6f1fe74b1c1c2bab2f4d131621ef8b340ed6a71b9bf13559536",
+    "edit_token": "tok_4bfc50687f285fc5e52861ae517205d0",
+    "owner_email": "test@example.com",
+    "created_at": "2026-08-06T23:23:39.131Z",
+    "k": 1,
+    "vertices": [
+      "v1"
+    ],
+    "edges": {},
+    "commuting_squares": [],
+    "commuting_cubes": [],
+    "properties": {},
+    "property_logs": []
+  },
+  {
     "id": "graph-2k-cube-01",
     "edit_token_hash": "b06c98fb4fdce1bdf140aabae4995c0f3bce7e5bfad04138c8989a18e4ac1faf",
     "edit_token": "tok_demo_2graph_alpha",
