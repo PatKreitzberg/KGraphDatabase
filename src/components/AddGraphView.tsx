@@ -201,7 +201,7 @@ export const AddGraphView: React.FC<AddGraphViewProps> = ({ onGraphSaved, onDirt
       return;
     }
 
-    if (!graphName.trim()) {
+    if (draftGraphs.length <= 1 && !graphName.trim()) {
       setErrorMessage('Please enter a graph name (Required).');
       return;
     }

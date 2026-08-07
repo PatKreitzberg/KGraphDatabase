@@ -163,6 +163,22 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialT
     onDirty?.();
   };
 
+  const processFileContent = (content: string) => {
+    const blocks = content.split(/\/\/\s*new\s*graph/i);
+    if (blocks.length > 1) {
+      const res = parseKGraphText(content);
+      // As requested, ignore errors and assume the user did everything correctly.
+      // We force success to instantly jump to Step 2.
+      res.success = true;
+      res.errors = [];
+      res.warnings = [];
+      onParsedSubmit(res);
+    } else {
+      setFileUploaded(true);
+      loadFromTextBlock(content);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -171,8 +187,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialT
     reader.onload = (evt) => {
       const content = evt.target?.result as string;
       if (content) {
-        setFileUploaded(true);
-        loadFromTextBlock(content);
+        processFileContent(content);
       }
     };
     reader.readAsText(file);
@@ -190,8 +205,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialT
       reader.onload = (evt) => {
         const content = evt.target?.result as string;
         if (content) {
-          setFileUploaded(true);
-          loadFromTextBlock(content);
+          processFileContent(content);
         }
       };
       reader.readAsText(file);
@@ -242,7 +256,7 @@ export const TextBlockEditor: React.FC<TextBlockEditorProps> = ({ mode, initialT
               Immutable Example Reference (Supports Multiple Graphs via // New Graph)
             </span>
           </div>
-          <pre className="bg-black text-white p-4 text-[11px] leading-relaxed overflow-x-auto select-text font-mono border border-black rounded-none h-64 overflow-y-auto">
+          <pre className="bg-black text-white p-4 text-[11px] leading-relaxed overflow-x-auto select-text font-mono border border-black rounded-none">
             <code>
               {`// Basic Example\n${SAMPLE_TEXT_BLOCK}\n// New Graph\n// Advanced Example\n${SAMPLE_PROPERTIES_TEXT_BLOCK}`}
             </code>

@@ -214,7 +214,7 @@ export default function App() {
               title="Download full backup of graphs.json and images"
             >
               <Download className="w-3.5 h-3.5" />
-              Backup
+              Download db JSON
             </a>
           </nav>
         </div>
